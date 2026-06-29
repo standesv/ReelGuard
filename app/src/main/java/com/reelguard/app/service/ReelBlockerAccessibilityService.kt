@@ -125,7 +125,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             currentPackage = pkg
         }
 
-        if (isMessagingContext(event, pkg)) {
+        if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) {
             flushCurrentReel()
             isInReelsSection = false
             overlayManager.hideOverlay()
@@ -155,7 +155,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     private fun handleScroll(event: AccessibilityEvent, pkg: String) {
         if (!isInReelsSection) return
-        if (isMessagingContext(event, pkg)) return
+        if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) return
 
         val now = System.currentTimeMillis()
         if (now - lastScrollTime < SCROLL_DEBOUNCE_MS) return
