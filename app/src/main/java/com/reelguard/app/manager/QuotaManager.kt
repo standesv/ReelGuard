@@ -3,8 +3,14 @@ package com.reelguard.app.manager
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.core.content.edit
+import com.reelguard.app.data.AppDatabase
+import com.reelguard.app.data.entity.DailyStats
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -73,18 +79,19 @@ class QuotaManager private constructor(private val context: Context) {
 
         // Apps activées (préfixe + package)
         const val KEY_APP_PREFIX = "app_enabled_"
+
+        // Exception messagerie
+        const val KEY_MESSAGING_EXCEPTION = "messaging_exception_enabled"
     }
 
     internal val prefs: SharedPreferences =
         context.getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
 
+    private val db = AppDatabase.getInstance(context)
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
     private val _quotaState = MutableStateFlow(getCurrentQuotaStatus())
     val quotaState: StateFlow<QuotaStatus> = _quotaState
-
-    // Compteur en mémoire pour la session courante (complète le compteur persisté)
-    private val sessionReelCount = AtomicInteger(0)
-    private var sessionTimeMs = 0L
-    private var sessionStartTime = 0L
 
     init {
         checkAndResetDailyQuotas()
@@ -186,16 +193,31 @@ class QuotaManager private constructor(private val context: Context) {
     }
 
     fun recordReelSession(packageName: String, durationMs: Long) {
+        // 1. SharedPreferences (pour quota temps réel)
         prefs.edit {
-            // Incrémenter le compteur du jour
             val currentCount = prefs.getInt(KEY_COUNT_TODAY, 0)
             putInt(KEY_COUNT_TODAY, currentCount + 1)
-
-            // Incrémenter le temps du jour
             val currentTime = prefs.getLong(KEY_TIME_TODAY_MS, 0L)
             putLong(KEY_TIME_TODAY_MS, currentTime + durationMs)
         }
         _quotaState.value = getCurrentQuotaStatus()
+
+        // 2. Room (pour les statistiques historiques)
+        scope.launch {
+            val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val existing = db.dailyStatsDao().getByDate(today)
+            val updated = existing?.copy(
+                totalReelCount = existing.totalReelCount + 1,
+                totalTimeMs = existing.totalTimeMs + durationMs,
+                streakDay = getStreakDays()
+            ) ?: DailyStats(
+                date = today,
+                totalReelCount = 1,
+                totalTimeMs = durationMs,
+                streakDay = getStreakDays()
+            )
+            db.dailyStatsDao().upsert(updated)
+        }
     }
 
     // ----------------------------------------------------------------
@@ -207,7 +229,27 @@ class QuotaManager private constructor(private val context: Context) {
         val lastReset = prefs.getString(KEY_LAST_RESET_DATE, "") ?: ""
 
         if (today != lastReset) {
-            // Mettre à jour le streak avant de reset
+            // Finaliser les stats du jour précédent dans Room avant reset
+            if (lastReset.isNotEmpty()) {
+                val countUsed = prefs.getInt(KEY_COUNT_TODAY, 0)
+                val timeUsed = prefs.getLong(KEY_TIME_TODAY_MS, 0L)
+                val metCount = isCountQuotaEnabled() && countUsed >= getCountLimit()
+                val metTime = isTimeQuotaEnabled() &&
+                        timeUsed >= getTimeLimitMin().toLong() * 60 * 1000
+                scope.launch {
+                    val existing = db.dailyStatsDao().getByDate(lastReset)
+                    if (existing != null) {
+                        db.dailyStatsDao().upsert(
+                            existing.copy(
+                                quotaMetCount = metCount,
+                                quotaMetTime = metTime,
+                                streakDay = getStreakDays()
+                            )
+                        )
+                    }
+                }
+            }
+
             updateStreak(lastReset)
 
             prefs.edit {
@@ -332,8 +374,11 @@ class QuotaManager private constructor(private val context: Context) {
     }
     fun verifyPin(pin: String): Boolean = pin.hashCode().toString() == getPinHash()
 
-    // Messagerie
-    fun isInMessagingContext(packageName: String): Boolean = false // Géré dans le service
+    // Exception messagerie
+    fun isMessagingExceptionEnabled(): Boolean =
+        prefs.getBoolean(KEY_MESSAGING_EXCEPTION, true) // activée par défaut
+    fun setMessagingExceptionEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_MESSAGING_EXCEPTION, enabled) }
 
     // Statut courant
     fun getCurrentQuotaStatus(): QuotaStatus {
