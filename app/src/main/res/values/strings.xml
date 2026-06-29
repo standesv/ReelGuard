@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ReelGuard</string>
+    <string name="accessibility_service_label">ReelGuard — Bloqueur de Reels</string>
+    <string name="accessibility_service_description">ReelGuard surveille les Reels sur Instagram, YouTube Shorts, TikTok et d\'autres apps afin de les bloquer lorsque votre quota quotidien est atteint. Aucune donnée n\'est envoyée en dehors de votre téléphone.</string>
+</resources>

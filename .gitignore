@@ -1,0 +1,23 @@
+# Android
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Keystore - NE JAMAIS committer ces fichiers
+*.keystore
+*.jks
+
+# APK/AAB
+*.apk
+*.aab
+
+# Fichiers OS
+.DS_Store
+Thumbs.db
