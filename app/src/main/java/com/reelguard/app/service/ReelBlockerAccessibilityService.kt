@@ -10,7 +10,6 @@ import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import com.reelguard.app.manager.OverlayManager
 import com.reelguard.app.manager.QuotaManager
-import com.reelguard.app.manager.QuotaStatus
 
 class ReelBlockerAccessibilityService : AccessibilityService() {
 
@@ -30,10 +29,20 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.X.android"
         )
 
+        private val IGNORE_PACKAGES = setOf(
+            "android",
+            "com.android.systemui",
+            "com.android.launcher3",
+            "com.google.android.apps.nexuslauncher",
+            "com.android.inputmethod.latin",
+            "com.google.android.inputmethod.latin",
+            "com.samsung.android.inputmethod"
+        )
+
         private val MESSAGING_KEYWORDS = mapOf(
-            "com.instagram.android" to listOf("direct", "thread", "inbox", "message"),
+            "com.instagram.android" to listOf("direct", "thread", "inbox"),
             "com.facebook.katana" to listOf("messenger", "thread", "inbox"),
-            "com.snapchat.android" to listOf("chat", "conversation", "message")
+            "com.snapchat.android" to listOf("chat", "conversation")
         )
     }
 
@@ -48,8 +57,6 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         quotaManager = QuotaManager.getInstance(applicationContext)
         overlayManager = OverlayManager(applicationContext)
 
-        // Écouter TOUS les changements de fenêtre (pas seulement les apps cibles)
-        // pour détecter quand l'utilisateur quitte une app cible
         val info = AccessibilityServiceInfo().apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
@@ -69,36 +76,34 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val event = event ?: return
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-
         val pkg = event.packageName?.toString() ?: return
 
-        // Si l'utilisateur quitte une app cible → cacher l'overlay
-        if (pkg !in TARGET_PACKAGES) {
-            overlayManager.hideOverlay()
+        // Ignorer notre propre package et les packages système
+        if (pkg == packageName || pkg in IGNORE_PACKAGES || pkg.startsWith("com.android.")) {
             return
         }
 
-        // App cible désactivée dans les paramètres → ignorer
-        if (!quotaManager.isBlockingEnabledForApp(pkg)) {
-            overlayManager.hideOverlay()
+        // App cible
+        if (pkg in TARGET_PACKAGES) {
+            if (!quotaManager.isBlockingEnabledForApp(pkg)) {
+                overlayManager.hideOverlay()
+                return
+            }
+            if (isMessagingContext(event, pkg)) {
+                overlayManager.hideOverlay()
+                return
+            }
+            val status = quotaManager.checkAndConsumeQuota(pkg)
+            if (status.isExceeded) {
+                overlayManager.showBlockOverlay(status)
+            } else {
+                overlayManager.hideOverlay()
+            }
             return
         }
 
-        // Exception messagerie : ne pas bloquer les DMs
-        if (isMessagingContext(event, pkg)) {
-            overlayManager.hideOverlay()
-            return
-        }
-
-        // Vérifier quota et afficher overlay si nécessaire
-        val status = quotaManager.checkAndConsumeQuota(pkg)
-        if (status.isExceeded) {
-            overlayManager.showBlockOverlay(status)
-        } else {
-            overlayManager.hideOverlay()
-            // Enregistrer la session pour les stats
-            quotaManager.recordReelSession(pkg, 0L)
-        }
+        // Autre app → cacher l'overlay
+        overlayManager.hideOverlay()
     }
 
     private fun isMessagingContext(event: AccessibilityEvent, pkg: String): Boolean {
