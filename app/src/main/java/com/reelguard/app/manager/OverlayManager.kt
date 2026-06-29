@@ -201,10 +201,3 @@ class OverlayManager(private val context: Context) {
 
 // Hack pour accéder à performGlobalAction depuis l'overlay
 // Le vrai appel se fait via le service
-private val accessibilityServiceRef = java.lang.ref.WeakReference<android.accessibilityservice.AccessibilityService?>(null)
-
-private fun View.performGlobalAction(action: Int) {
-    // En pratique, c'est le service qui appelle hideBlock et pressBack
-    // On envoie un broadcast ou on utilise la référence faible au service
-    context.sendBroadcast(android.content.Intent("com.reelguard.action.PRESS_BACK"))
-}
