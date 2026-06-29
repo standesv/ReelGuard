@@ -65,7 +65,7 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Paramètres") },
+                title = { Text("Parametres") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
@@ -88,17 +88,24 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // --- Quota en nombre ---
-            SectionCard(title = "Quota par nombre de Reels", icon = Icons.Default.Tag) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Activer le quota par nombre")
-                    Switch(checked = vm.countEnabled, onCheckedChange = { vm.countEnabled = it })
-                }
-                AnimatedVisibility(visible = vm.countEnabled) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Tag, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Quota par nombre de Reels", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Activer le quota par nombre")
+                        Switch(checked = vm.countEnabled, onCheckedChange = { vm.countEnabled = it })
+                    }
+                    if (vm.countEnabled) {
                         Text("Maximum par jour : ${vm.countLimit} reels")
                         Slider(
                             value = vm.countLimit.toFloat(),
@@ -111,17 +118,24 @@ fun SettingsScreen(
             }
 
             // --- Quota en temps ---
-            SectionCard(title = "Quota par durée", icon = Icons.Default.Timer) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Activer le quota en temps")
-                    Switch(checked = vm.timeEnabled, onCheckedChange = { vm.timeEnabled = it })
-                }
-                AnimatedVisibility(visible = vm.timeEnabled) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Quota par duree", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Activer le quota en temps")
+                        Switch(checked = vm.timeEnabled, onCheckedChange = { vm.timeEnabled = it })
+                    }
+                    if (vm.timeEnabled) {
                         Text("Maximum par jour : ${vm.timeLimitMin} minutes")
                         Slider(
                             value = vm.timeLimitMin.toFloat(),
@@ -134,27 +148,31 @@ fun SettingsScreen(
             }
 
             // --- Plages horaires ---
-            SectionCard(title = "Plages horaires bloquées", icon = Icons.Default.Schedule) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Activer les plages horaires")
-                    Switch(checked = vm.scheduleEnabled, onCheckedChange = { vm.scheduleEnabled = it })
-                }
-                AnimatedVisibility(visible = vm.scheduleEnabled) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Plages horaires bloquees", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Activer les plages horaires")
+                        Switch(checked = vm.scheduleEnabled, onCheckedChange = { vm.scheduleEnabled = it })
+                    }
+                    if (vm.scheduleEnabled) {
                         vm.scheduleRules.forEachIndexed { idx, rule ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(
-                                    rule.label.ifEmpty { "${rule.startHour}h–${rule.endHour}h" },
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
+                                Text(rule.label.ifEmpty { "${rule.startHour}h-${rule.endHour}h" })
                                 IconButton(onClick = {
                                     vm.scheduleRules = vm.scheduleRules.toMutableList().also { it.removeAt(idx) }
                                 }) {
@@ -175,55 +193,73 @@ fun SettingsScreen(
             }
 
             // --- Heure de reset ---
-            SectionCard(title = "Réinitialisation quotidienne", icon = Icons.Default.Refresh) {
-                Text("Heure de reset : ${"%02d".format(vm.resetHour)}h00")
-                Slider(
-                    value = vm.resetHour.toFloat(),
-                    onValueChange = { vm.resetHour = it.toInt() },
-                    valueRange = 0f..23f,
-                    steps = 22
-                )
-                Text(
-                    "Les quotas se remettent à zéro chaque jour à ${"%02d".format(vm.resetHour)}h00.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // --- Sécurité / PIN ---
-            SectionCard(title = "Anti-contournement", icon = Icons.Default.Lock) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column {
-                        Text("PIN de protection")
-                        Text(
-                            "Demander un PIN pour désactiver ReelGuard",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Reinitialisation quotidienne", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
-                    Switch(
-                        checked = vm.pinEnabled,
-                        onCheckedChange = {
-                            if (it) showPinDialog = true
-                            else vm.setPin("")
-                        }
+                    Text("Heure de reset : ${"%02d".format(vm.resetHour)}h00")
+                    Slider(
+                        value = vm.resetHour.toFloat(),
+                        onValueChange = { vm.resetHour = it.toInt() },
+                        valueRange = 0f..23f,
+                        steps = 22
+                    )
+                    Text(
+                        "Les quotas se remettent a zero chaque jour a ${"%02d".format(vm.resetHour)}h00.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                if (vm.pinEnabled) {
-                    TextButton(onClick = { showPinDialog = true }) {
-                        Text("Changer le PIN")
+            }
+
+            // --- PIN ---
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Anti-contournement", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("PIN de protection")
+                            Text(
+                                "Demander un PIN pour desactiver ReelGuard",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = vm.pinEnabled,
+                            onCheckedChange = {
+                                if (it) showPinDialog = true
+                                else vm.setPin("")
+                            }
+                        )
+                    }
+                    if (vm.pinEnabled) {
+                        TextButton(onClick = { showPinDialog = true }) {
+                            Text("Changer le PIN")
+                        }
+                    }
+                    HorizontalDivider()
+                    Text(
+                        "Un delai de 30 secondes s'applique avant toute desactivation.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                Text(
-                    "Un délai de 30 secondes s'applique avant toute désactivation pour éviter les impulsions.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
@@ -250,29 +286,6 @@ fun SettingsScreen(
 }
 
 @Composable
-fun SectionCard(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-            }
-            content()
-        }
-    }
-}
-
-@Composable
 fun PinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var pin by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
@@ -280,7 +293,7 @@ fun PinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Définir un PIN") },
+        title = { Text("Definir un PIN") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -324,8 +337,8 @@ fun AddScheduleDialog(onDismiss: () -> Unit, onConfirm: (ScheduleRule) -> Unit) 
         title = { Text("Ajouter une plage horaire") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("De ${"%02d".format(startHour)}h à ${"%02d".format(endHour)}h")
-                Text("Heure de début : ${"%02d".format(startHour)}h")
+                Text("De ${"%02d".format(startHour)}h a ${"%02d".format(endHour)}h")
+                Text("Heure de debut : ${"%02d".format(startHour)}h")
                 Slider(
                     value = startHour.toFloat(),
                     onValueChange = { startHour = it.toInt() },
@@ -340,7 +353,7 @@ fun AddScheduleDialog(onDismiss: () -> Unit, onConfirm: (ScheduleRule) -> Unit) 
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
-                    label = { Text("Label (optionnel, ex: Nuit)") },
+                    label = { Text("Label (ex: Nuit)") },
                     singleLine = true
                 )
             }
