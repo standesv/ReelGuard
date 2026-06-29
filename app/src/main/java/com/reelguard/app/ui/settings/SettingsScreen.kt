@@ -33,6 +33,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     var scheduleEnabled by mutableStateOf(qm.isScheduleEnabled())
     var scheduleRules by mutableStateOf(qm.getScheduleRules())
     var pinEnabled by mutableStateOf(qm.isPinEnabled())
+    var messagingException by mutableStateOf(qm.isMessagingExceptionEnabled())
     var resetHour by mutableIntStateOf(qm.prefs.getInt(QuotaManager.KEY_RESET_HOUR, 0))
 
     fun save() {
@@ -42,6 +43,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         qm.setTimeLimitMin(timeLimitMin)
         qm.setScheduleEnabled(scheduleEnabled)
         qm.saveScheduleRules(scheduleRules)
+        qm.setMessagingExceptionEnabled(messagingException)
         qm.prefs.edit().putInt(QuotaManager.KEY_RESET_HOUR, resetHour).apply()
     }
 
@@ -214,6 +216,35 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+            }
+
+            // --- Exception messagerie ---
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Messagerie", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Autoriser les reels en DM")
+                            Text(
+                                "Les reels reçus dans les messages privés (Instagram DM, Messenger, Snapchat) ne sont pas bloqués.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Switch(checked = vm.messagingException, onCheckedChange = { vm.messagingException = it })
+                    }
                 }
             }
 
