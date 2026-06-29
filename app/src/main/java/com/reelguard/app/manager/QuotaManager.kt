@@ -75,7 +75,7 @@ class QuotaManager private constructor(private val context: Context) {
         const val KEY_APP_PREFIX = "app_enabled_"
     }
 
-    private val prefs: SharedPreferences =
+    internal val prefs: SharedPreferences =
         context.getSharedPreferences(PREF_FILE, Context.MODE_PRIVATE)
 
     private val _quotaState = MutableStateFlow(getCurrentQuotaStatus())
