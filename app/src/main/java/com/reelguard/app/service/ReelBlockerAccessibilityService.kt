@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import com.reelguard.app.manager.OverlayManager
 import com.reelguard.app.manager.QuotaManager
@@ -21,12 +22,15 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var autoExitRunnable: Runnable? = null
 
-    // Suivi du temps passé dans les apps cibles
-    private var sessionStartTime = 0L
-    private var sessionPkg = ""
-    // Anti-doublon pour le compteur (1 compte max toutes les 10s par app)
-    private var lastCountTime = 0L
-    private var lastCountPkg = ""
+    // Suivi de session
+    private var currentPackage: String = ""
+    private var isInReelsSection = false
+    private var currentReelStartTime = 0L   // début du reel EN COURS
+    private var sessionTimeAccum = 0L       // temps cumulé dans la session
+
+    // Anti-doublon pour les scrolls
+    private var lastScrollTime = 0L
+    private val SCROLL_DEBOUNCE_MS = 1500L  // 1,5s entre deux comptes
 
     companion object {
         val TARGET_PACKAGES = setOf(
@@ -55,6 +59,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.facebook.katana" to listOf("messenger", "thread", "inbox"),
             "com.snapchat.android" to listOf("chat", "conversation")
         )
+
+        private val REEL_VIEW_IDS = listOf(
+            "clips_viewer_container", "reel_viewer", "clips_tab",
+            "reel_player_page", "shorts_container", "shorts_video_cell",
+            "reels_viewer", "fb_reels", "spotlight_video"
+        )
     }
 
     private val backReceiver = object : BroadcastReceiver() {
@@ -71,9 +81,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         overlayManager = OverlayManager(applicationContext)
 
         val info = AccessibilityServiceInfo().apply {
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                    AccessibilityEvent.TYPE_VIEW_SCROLLED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-            notificationTimeout = 150
+            flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+            packageNames = TARGET_PACKAGES.toTypedArray()
+            notificationTimeout = 100
         }
         serviceInfo = info
 
@@ -88,98 +101,181 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val event = event ?: return
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
 
         if (pkg == packageName || pkg in IGNORE_PACKAGES || pkg.startsWith("com.android.")) return
-
-        // L'utilisateur quitte une app cible → enregistrer la session
         if (pkg !in TARGET_PACKAGES) {
-            endSession()
-            cancelAutoExit()
-            overlayManager.hideOverlay()
+            onLeaveTargetApp()
             return
         }
+        if (!quotaManager.isBlockingEnabledForApp(pkg)) return
 
-        if (!quotaManager.isBlockingEnabledForApp(pkg)) {
-            endSession()
-            return
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> handleWindowChange(event, pkg)
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> handleScroll(event, pkg)
+        }
+    }
+
+    // ── Changement d'activité ────────────────────────────────────────────────
+
+    private fun handleWindowChange(event: AccessibilityEvent, pkg: String) {
+        if (pkg != currentPackage) {
+            // L'utilisateur change d'app cible
+            flushCurrentReel()
+            currentPackage = pkg
         }
 
         if (isMessagingContext(event, pkg)) {
-            endSession()
+            flushCurrentReel()
+            isInReelsSection = false
             overlayManager.hideOverlay()
             return
         }
 
-        // Démarrer le suivi du temps si nouvelle session
-        if (sessionPkg != pkg) {
-            endSession()
-            sessionStartTime = System.currentTimeMillis()
-            sessionPkg = pkg
-        }
+        val inReels = isReelsContext(event, pkg)
 
-        // Vérifier quota
-        val status = quotaManager.checkAndConsumeQuota(pkg)
-
-        if (status.isExceeded) {
-            // Bloquer
-            val className = event.className?.toString()?.lowercase() ?: ""
-            when {
-                status.focusModeActive -> {
-                    overlayManager.showBlockOverlay(status)
-                    scheduleAutoExit(2000)
-                }
-                pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill") -> {
-                    showToastAndExit("TikTok bloqué — quota atteint")
-                }
-                pkg == "com.instagram.android" && isReelClass(className) -> {
-                    showToastAndExit("Instagram Reels bloqués")
-                }
-                pkg == "com.google.android.youtube" && isShortClass(className) -> {
-                    showToastAndExit("YouTube Shorts bloqués")
-                }
-                pkg == "com.facebook.katana" && isReelClass(className) -> {
-                    showToastAndExit("Facebook Reels bloqués")
-                }
-                pkg == "com.snapchat.android" && isSpotlightClass(className) -> {
-                    showToastAndExit("Spotlight bloqué")
-                }
-                // Si quota dépassé mais pas dans section Reels détectée :
-                // bloquer quand même avec overlay
-                status.countExceeded || status.timeExceeded -> {
-                    overlayManager.showBlockOverlay(status)
-                    scheduleAutoExit(2000)
-                }
-            }
-        } else {
-            // Quota pas encore atteint → enregistrer la visite
-            val now = System.currentTimeMillis()
-            if (pkg != lastCountPkg || now - lastCountTime > 10_000L) {
-                quotaManager.recordReelSession(pkg, 0L)
-                lastCountPkg = pkg
-                lastCountTime = now
-            }
-            cancelAutoExit()
+        if (inReels && !isInReelsSection) {
+            // Entrée dans la section Reels
+            isInReelsSection = true
+            currentReelStartTime = System.currentTimeMillis()
+            sessionTimeAccum = 0L
+            // Compter le premier reel
+            countOneReel(pkg)
+        } else if (!inReels && isInReelsSection) {
+            // Sortie de la section Reels
+            flushCurrentReel()
+            isInReelsSection = false
             overlayManager.hideOverlay()
         }
+
+        if (isInReelsSection) checkAndBlock(pkg)
     }
 
-    // Enregistre la durée de la session quand l'utilisateur quitte l'app
-    private fun endSession() {
-        if (sessionStartTime > 0 && sessionPkg.isNotEmpty()) {
-            val duration = System.currentTimeMillis() - sessionStartTime
-            if (duration > 2000) { // Ignorer les sessions < 2 secondes
-                quotaManager.recordReelSession(sessionPkg, duration)
+    // ── Scroll = nouveau reel ────────────────────────────────────────────────
+
+    private fun handleScroll(event: AccessibilityEvent, pkg: String) {
+        if (!isInReelsSection) return
+        if (isMessagingContext(event, pkg)) return
+
+        val now = System.currentTimeMillis()
+        if (now - lastScrollTime < SCROLL_DEBOUNCE_MS) return
+        lastScrollTime = now
+
+        // Enregistrer le temps passé sur le reel précédent
+        val reelDuration = now - currentReelStartTime
+        sessionTimeAccum += reelDuration
+        quotaManager.recordReelSession(pkg, reelDuration)
+        currentReelStartTime = now  // Démarrer le nouveau reel
+
+        checkAndBlock(pkg)
+    }
+
+    // ── Vérification et blocage ──────────────────────────────────────────────
+
+    private fun checkAndBlock(pkg: String) {
+        val status = quotaManager.checkAndConsumeQuota(pkg)
+        if (!status.isExceeded) {
+            overlayManager.hideOverlay()
+            return
+        }
+
+        when {
+            status.focusModeActive -> {
+                overlayManager.showBlockOverlay(status)
+                scheduleAutoExit(2000)
+            }
+            pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill") ->
+                showToastAndExit("TikTok bloqué — quota atteint")
+            pkg == "com.instagram.android" ->
+                showToastAndExit("Instagram Reels bloqués — quota atteint")
+            pkg == "com.google.android.youtube" ->
+                showToastAndExit("YouTube Shorts bloqués — quota atteint")
+            pkg == "com.facebook.katana" ->
+                showToastAndExit("Facebook Reels bloqués — quota atteint")
+            pkg == "com.snapchat.android" ->
+                showToastAndExit("Spotlight bloqué — quota atteint")
+            else -> {
+                overlayManager.showBlockOverlay(status)
+                scheduleAutoExit(2000)
             }
         }
-        sessionStartTime = 0L
-        sessionPkg = ""
     }
 
-    private fun isReelClass(cls: String) = cls.contains("reel") || cls.contains("clip")
-    private fun isShortClass(cls: String) = cls.contains("short")
-    private fun isSpotlightClass(cls: String) = cls.contains("spotlight")
+    // ── Détection du contexte ────────────────────────────────────────────────
+
+    private fun isReelsContext(event: AccessibilityEvent, pkg: String): Boolean {
+        val className = event.className?.toString()?.lowercase() ?: ""
+
+        // Par nom de classe (fiable si la classe change)
+        val classMatch = when (pkg) {
+            "com.instagram.android" ->
+                className.contains("reel") || className.contains("clip")
+            "com.google.android.youtube" ->
+                className.contains("short")
+            "com.facebook.katana" ->
+                className.contains("reel")
+            "com.snapchat.android" ->
+                className.contains("spotlight")
+            "com.zhiliaoapp.musically", "com.ss.android.ugc.trill" ->
+                true  // TikTok = toujours des reels
+            else -> false
+        }
+        if (classMatch) return true
+
+        // Par view IDs dans l'arbre de vues (fallback)
+        val root = rootInActiveWindow ?: return false
+        return nodeContainsViewIds(root, REEL_VIEW_IDS)
+    }
+
+    private fun isMessagingContext(event: AccessibilityEvent, pkg: String): Boolean {
+        val keywords = MESSAGING_KEYWORDS[pkg] ?: return false
+        val className = event.className?.toString()?.lowercase() ?: ""
+        val text = event.text?.joinToString(" ")?.lowercase() ?: ""
+        return keywords.any { className.contains(it) || text.contains(it) }
+    }
+
+    // ── Comptage ─────────────────────────────────────────────────────────────
+
+    private fun countOneReel(pkg: String) {
+        // Enregistre 1 reel avec 0ms (le temps sera ajouté au prochain scroll/exit)
+        quotaManager.recordReelSession(pkg, 0L)
+    }
+
+    private fun flushCurrentReel() {
+        if (isInReelsSection && currentReelStartTime > 0) {
+            val duration = System.currentTimeMillis() - currentReelStartTime
+            if (duration > 500) {
+                // Enregistrer seulement le temps du dernier reel (sans incrémenter le count)
+                // On passe duration négative pour signaler "temps seulement"
+                // → en réalité on ajoute le temps accumulé final
+                quotaManager.recordReelSession(currentPackage, duration)
+            }
+            currentReelStartTime = 0L
+            sessionTimeAccum = 0L
+        }
+    }
+
+    private fun onLeaveTargetApp() {
+        flushCurrentReel()
+        isInReelsSection = false
+        cancelAutoExit()
+        overlayManager.hideOverlay()
+        currentPackage = ""
+    }
+
+    // ── Utilitaires d'arbre de vues ──────────────────────────────────────────
+
+    private fun nodeContainsViewIds(node: AccessibilityNodeInfo?, ids: List<String>, depth: Int = 0): Boolean {
+        if (node == null || depth > 6) return false
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
+        if (ids.any { viewId.contains(it) }) return true
+        for (i in 0 until node.childCount) {
+            if (nodeContainsViewIds(node.getChild(i), ids, depth + 1)) return true
+        }
+        return false
+    }
+
+    // ── Actions système ──────────────────────────────────────────────────────
 
     private fun showToastAndExit(message: String) {
         Toast.makeText(applicationContext, "🛑 $message", Toast.LENGTH_SHORT).show()
@@ -201,21 +297,15 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         autoExitRunnable = null
     }
 
-    private fun isMessagingContext(event: AccessibilityEvent, pkg: String): Boolean {
-        val keywords = MESSAGING_KEYWORDS[pkg] ?: return false
-        val className = event.className?.toString()?.lowercase() ?: ""
-        val text = event.text?.joinToString(" ")?.lowercase() ?: ""
-        return keywords.any { className.contains(it) || text.contains(it) }
-    }
-
     override fun onInterrupt() {
+        flushCurrentReel()
         cancelAutoExit()
         overlayManager.hideOverlay()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        endSession()
+        flushCurrentReel()
         cancelAutoExit()
         overlayManager.hideOverlay()
         try { unregisterReceiver(backReceiver) } catch (_: Exception) {}
