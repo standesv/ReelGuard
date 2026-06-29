@@ -145,7 +145,7 @@ class OverlayManager(private val context: Context) {
             setPadding(48, 24, 48, 24)
             setOnClickListener {
                 // Simuler le bouton back système
-                performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+                context.sendBroadcast(android.content.Intent("com.reelguard.action.PRESS_BACK"))
                 hideBlock()
             }
         }
