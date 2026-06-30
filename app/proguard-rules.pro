@@ -16,3 +16,8 @@
 # JSON parsing
 -keepattributes Signature
 -keepattributes *Annotation*
+
+# AdMob / Google Mobile Ads
+-keep class com.google.android.gms.ads.** { *; }
+-keep class com.google.ads.** { *; }
+-dontwarn com.google.android.gms.ads.**
