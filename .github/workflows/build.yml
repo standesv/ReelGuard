@@ -1,4 +1,4 @@
-name: Build & Release AAB
+name: Build & Release
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build AAB
+    name: Build APK + AAB
     runs-on: ubuntu-latest
 
     permissions:
@@ -33,8 +33,8 @@ jobs:
         run: |
           echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > $RUNNER_TEMP/keystore.jks
 
-      - name: Build Release AAB
-        run: gradle bundleRelease --no-daemon
+      - name: Build Release APK + AAB
+        run: gradle assembleRelease bundleRelease --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false"
           KEYSTORE_PATH: ${{ runner.temp }}/keystore.jks
@@ -42,10 +42,12 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Rename AAB
+      - name: Prepare artifacts
         run: |
           VERSION="${GITHUB_REF_NAME:-dev}"
+          cp app/build/outputs/apk/release/app-release.apk "ReelGuard-${VERSION}.apk"
           cp app/build/outputs/bundle/release/app-release.aab "ReelGuard-${VERSION}.aab"
+          echo "APK_PATH=ReelGuard-${VERSION}.apk" >> $GITHUB_ENV
           echo "AAB_PATH=ReelGuard-${VERSION}.aab" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
@@ -55,11 +57,20 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: "ReelGuard ${{ env.VERSION }}"
           body: |
-            ## Play Store
+            ## Fichiers
 
-            Le fichier `.aab` ci-dessous est à uploader dans la Google Play Console.
+            - **`.apk`** — installation directe sur Android (test)
+            - **`.aab`** — upload sur la Google Play Console
 
-          files: ${{ env.AAB_PATH }}
+            ## Installation APK
+
+            1. Téléchargez `ReelGuard-${{ env.VERSION }}.apk`
+            2. Sur Android : Paramètres → Sécurité → Autoriser les sources inconnues
+            3. Ouvrez le fichier téléchargé
+
+          files: |
+            ${{ env.APK_PATH }}
+            ${{ env.AAB_PATH }}
           draft: false
           prerelease: false
         env:
