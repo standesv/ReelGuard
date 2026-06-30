@@ -11,7 +11,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
-import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import com.reelguard.app.manager.OverlayManager
 import com.reelguard.app.manager.QuotaManager
@@ -61,15 +60,6 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.snapchat.android" to listOf("chat", "conversation")
         )
 
-        // IDs présents uniquement dans le viewer plein-écran (pas dans le feed)
-        private val FULLSCREEN_REEL_VIEW_IDS = listOf(
-            "clips_viewer_container", "reel_viewer",
-            "reel_player_page", "shorts_container", "shorts_video_cell",
-            "reels_viewer", "fb_reels", "spotlight_video"
-        )
-
-        // IDs plus larges utilisés comme détection d'entrée (peut matcher le feed)
-        private val REEL_VIEW_IDS = FULLSCREEN_REEL_VIEW_IDS + listOf("clips_tab")
     }
 
     private val backReceiver = object : BroadcastReceiver() {
@@ -142,8 +132,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         if (inReels && !isInReelsSection) {
             // Entrée dans la section Reels
             isInReelsSection = true
-            // Démarre le chrono seulement si on est bien dans le viewer plein-écran
-            currentReelStartTime = if (isFullScreenReelsView(pkg)) System.currentTimeMillis() else 0L
+            currentReelStartTime = System.currentTimeMillis()
             sessionTimeAccum = 0L
             // Compter le premier reel
             countOneReel(pkg)
@@ -167,17 +156,11 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         if (now - lastScrollTime < SCROLL_DEBOUNCE_MS) return
         lastScrollTime = now
 
-        // Le temps n'est comptabilisé QUE dans le viewer plein-écran (pas dans le feed)
-        val inFullScreen = isFullScreenReelsView(pkg)
-        val reelDuration = if (inFullScreen && currentReelStartTime > 0L) {
-            now - currentReelStartTime
-        } else 0L
-
+        // Durée du reel regardé = temps depuis le dernier scroll (ou l'entrée)
+        val reelDuration = if (currentReelStartTime > 0L) now - currentReelStartTime else 0L
         if (reelDuration > 0L) sessionTimeAccum += reelDuration
         quotaManager.recordReelSession(pkg, reelDuration)
-
-        // (Re)démarrer le chrono seulement si on est en plein-écran
-        currentReelStartTime = if (inFullScreen) now else 0L
+        currentReelStartTime = now
 
         checkAndBlock(pkg)
     }
@@ -215,11 +198,14 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     // ── Détection du contexte ────────────────────────────────────────────────
 
+    /**
+     * Détection basée uniquement sur le nom de classe de la fenêtre.
+     * Le fallback par view IDs a été retiré : Instagram et Facebook exposent des IDs
+     * de reels même dans le feed normal (reels inline), ce qui causait de faux positifs.
+     */
     private fun isReelsContext(event: AccessibilityEvent, pkg: String): Boolean {
         val className = event.className?.toString()?.lowercase() ?: ""
-
-        // Par nom de classe (fiable si la classe change)
-        val classMatch = when (pkg) {
+        return when (pkg) {
             "com.instagram.android" ->
                 className.contains("reel") || className.contains("clip")
             "com.google.android.youtube" ->
@@ -232,22 +218,6 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 true  // TikTok = toujours des reels
             else -> false
         }
-        if (classMatch) return true
-
-        // Par view IDs dans l'arbre de vues (fallback)
-        val root = rootInActiveWindow ?: return false
-        return nodeContainsViewIds(root, REEL_VIEW_IDS)
-    }
-
-    /**
-     * Vérifie que l'on est dans le viewer plein-écran (Reels tab, Shorts, etc.)
-     * et NON dans le feed où des reels peuvent apparaître en ligne.
-     * TikTok est toujours plein-écran par nature.
-     */
-    private fun isFullScreenReelsView(pkg: String): Boolean {
-        if (pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")) return true
-        val root = rootInActiveWindow ?: return false
-        return nodeContainsViewIds(root, FULLSCREEN_REEL_VIEW_IDS)
     }
 
     private fun isMessagingContext(event: AccessibilityEvent, pkg: String): Boolean {
@@ -284,18 +254,6 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         cancelAutoExit()
         overlayManager.hideOverlay()
         currentPackage = ""
-    }
-
-    // ── Utilitaires d'arbre de vues ──────────────────────────────────────────
-
-    private fun nodeContainsViewIds(node: AccessibilityNodeInfo?, ids: List<String>, depth: Int = 0): Boolean {
-        if (node == null || depth > 6) return false
-        val viewId = node.viewIdResourceName?.lowercase() ?: ""
-        if (ids.any { viewId.contains(it) }) return true
-        for (i in 0 until node.childCount) {
-            if (nodeContainsViewIds(node.getChild(i), ids, depth + 1)) return true
-        }
-        return false
     }
 
     // ── Actions système ──────────────────────────────────────────────────────
