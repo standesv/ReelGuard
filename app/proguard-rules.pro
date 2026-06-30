@@ -21,3 +21,7 @@
 -keep class com.google.android.gms.ads.** { *; }
 -keep class com.google.ads.** { *; }
 -dontwarn com.google.android.gms.ads.**
+
+# UMP — User Messaging Platform (RGPD)
+-keep class com.google.android.ump.** { *; }
+-dontwarn com.google.android.ump.**

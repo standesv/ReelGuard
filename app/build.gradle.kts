@@ -91,6 +91,9 @@ dependencies {
     // AdMob
     implementation("com.google.android.gms:play-services-ads:23.2.0")
 
+    // UMP — User Messaging Platform (consentement RGPD)
+    implementation("com.google.android.ump:user-messaging-platform:2.2.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

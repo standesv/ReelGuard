@@ -1,7 +1,6 @@
 package com.reelguard.app
 
 import android.app.Application
-import com.google.android.gms.ads.MobileAds
 import com.reelguard.app.data.AppDatabase
 import com.reelguard.app.manager.QuotaManager
 
@@ -12,7 +11,6 @@ class ReelGuardApp : Application() {
     override fun onCreate() {
         super.onCreate()
         quotaManager.checkAndResetDailyQuotas()
-        // Initialisation AdMob (obligatoire avant d'afficher des publicités)
-        MobileAds.initialize(this)
+        // MobileAds est initialisé dans MainActivity, après consentement RGPD (UMP)
     }
 }
