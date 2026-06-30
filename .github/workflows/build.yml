@@ -10,6 +10,7 @@ jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
+
     permissions:
       contents: write
 
@@ -28,19 +29,40 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Build Debug APK
-        run: gradle assembleDebug --no-daemon
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > $RUNNER_TEMP/keystore.jks
+
+      - name: Build Release APK
+        run: gradle assembleRelease --no-daemon
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+          KEYSTORE_PATH: ${{ runner.temp }}/keystore.jks
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
       - name: Rename APK
         run: |
           VERSION="${GITHUB_REF_NAME:-dev}"
-          cp app/build/outputs/apk/debug/app-debug.apk "ReelGuard-${VERSION}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "ReelGuard-${VERSION}.apk"
           echo "APK_PATH=ReelGuard-${VERSION}.apk" >> $GITHUB_ENV
           echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
+          name: "ReelGuard ${{ env.VERSION }}"
+          body: |
+            ## Installation
+
+            1. Téléchargez `ReelGuard-${{ env.VERSION }}.apk` ci-dessous
+            2. Sur Android : Paramètres → Sécurité → Autoriser les sources inconnues (ou ouvrez directement le fichier)
+            3. Lancez ReelGuard et suivez le guide de configuration (2 autorisations à accorder)
+
           files: ${{ env.APK_PATH }}
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
