@@ -2,7 +2,6 @@ package com.reelguard.app.ui.dashboard
 
 import android.content.Intent
 import android.provider.Settings
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -16,12 +15,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
 import com.reelguard.app.ui.theme.BlockRed
 import com.reelguard.app.ui.theme.FocusBlue
 import com.reelguard.app.ui.theme.StreakGold
@@ -31,7 +33,6 @@ import com.reelguard.app.ui.theme.SuccessGreen
 @Composable
 fun DashboardScreen(
     onNavigateToSettings: () -> Unit,
-    onNavigateToStats: () -> Unit,
     viewModel: DashboardViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -50,15 +51,13 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToStats) {
-                        Icon(Icons.Default.BarChart, contentDescription = "Statistiques")
-                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Paramètres")
                     }
                 }
             )
-        }
+        },
+        bottomBar = { AdBanner() }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -382,6 +381,25 @@ fun StatusBadge(isActive: Boolean) {
             color = if (isActive) SuccessGreen else BlockRed
         )
     }
+}
+
+// ── Bandeau publicitaire AdMob ───────────────────────────────────────────────
+// Remplacer l'ID ci-dessous par votre vrai ID après création du compte AdMob
+// ID de test Google (affiche des publicités de test, aucun revenu réel) :
+private const val AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
+
+@Composable
+fun AdBanner() {
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context ->
+            AdView(context).apply {
+                setAdSize(AdSize.BANNER) // 320×50 dp, format standard accepté par toutes les régies
+                adUnitId = AD_UNIT_ID
+                loadAd(AdRequest.Builder().build())
+            }
+        }
+    )
 }
 
 @Composable
