@@ -400,7 +400,7 @@ fun StatusBadge(isActive: Boolean) {
 }
 
 // ── Bandeau publicitaire AdMob ───────────────────────────────────────────────
-private const val AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
+private const val AD_UNIT_ID = "ca-app-pub-3209259150498249/5848346756"
 
 @Composable
 fun AdBanner() {
