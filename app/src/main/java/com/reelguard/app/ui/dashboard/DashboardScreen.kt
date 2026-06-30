@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -24,6 +25,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
+import com.reelguard.app.R
 import com.reelguard.app.ui.theme.BlockRed
 import com.reelguard.app.ui.theme.FocusBlue
 import com.reelguard.app.ui.theme.StreakGold
@@ -52,7 +54,7 @@ fun DashboardScreen(
                 },
                 actions = {
                     IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Paramètres")
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_settings))
                     }
                 }
             )
@@ -70,9 +72,9 @@ fun DashboardScreen(
             // Avertissements de permissions manquantes
             if (!state.isAccessibilityEnabled) {
                 PermissionWarningCard(
-                    title = "Service d'accessibilité requis",
-                    description = "Activez ReelGuard dans les paramètres d'accessibilité pour détecter les Reels.",
-                    buttonText = "Activer",
+                    title = stringResource(R.string.permission_accessibility_title),
+                    description = stringResource(R.string.permission_accessibility_desc),
+                    buttonText = stringResource(R.string.btn_enable),
                     onAction = {
                         context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     }
@@ -80,9 +82,9 @@ fun DashboardScreen(
             }
             if (!state.isOverlayPermissionGranted) {
                 PermissionWarningCard(
-                    title = "Permission d'affichage requise",
-                    description = "ReelGuard a besoin d'afficher un écran de blocage par-dessus les autres apps.",
-                    buttonText = "Autoriser",
+                    title = stringResource(R.string.permission_overlay_title),
+                    description = stringResource(R.string.permission_overlay_desc),
+                    buttonText = stringResource(R.string.btn_allow),
                     onAction = {
                         context.startActivity(
                             Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
@@ -118,7 +120,7 @@ fun DashboardScreen(
                 ) {
                     Icon(Icons.Default.Timer, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Activer le Mode Focus")
+                    Text(stringResource(R.string.btn_activate_focus))
                 }
             }
 
@@ -195,13 +197,13 @@ fun StreakCard(days: Int) {
             Text("🔥", style = MaterialTheme.typography.headlineMedium)
             Column {
                 Text(
-                    "$days jours de suite !",
+                    stringResource(R.string.streak_days, days),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = StreakGold
                 )
                 Text(
-                    "Tu respectes tes quotas — continue comme ça !",
+                    stringResource(R.string.streak_motivation),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -226,11 +228,18 @@ fun FocusActiveCard(timeRemaining: String, onStop: () -> Unit) {
             ) {
                 Icon(Icons.Default.Timer, contentDescription = null, tint = FocusBlue)
                 Column {
-                    Text("Mode Focus actif", fontWeight = FontWeight.Bold, color = FocusBlue)
-                    Text("Fin dans $timeRemaining", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        stringResource(R.string.focus_active_title),
+                        fontWeight = FontWeight.Bold,
+                        color = FocusBlue
+                    )
+                    Text(
+                        stringResource(R.string.focus_active_remaining, timeRemaining),
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
-            TextButton(onClick = onStop) { Text("Arrêter") }
+            TextButton(onClick = onStop) { Text(stringResource(R.string.btn_stop)) }
         }
     }
 }
@@ -242,15 +251,19 @@ fun QuotaCard(state: DashboardState) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Quotas du jour", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.quota_today_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
 
             // Quota en nombre
             if (state.quota.countLimit > 0) {
                 QuotaProgressRow(
-                    label = "Reels visionnés",
+                    label = stringResource(R.string.quota_reels_label),
                     used = state.quota.countUsed,
                     limit = state.quota.countLimit,
-                    unit = "reels"
+                    unit = stringResource(R.string.quota_unit_reels)
                 )
             }
 
@@ -258,16 +271,16 @@ fun QuotaCard(state: DashboardState) {
             if (state.quota.timeLimitMin > 0) {
                 val usedMin = (state.quota.timeUsedMs / 60000f).toInt()
                 QuotaProgressRow(
-                    label = "Temps de Reels",
+                    label = stringResource(R.string.quota_time_label),
                     used = usedMin,
                     limit = state.quota.timeLimitMin,
-                    unit = "min"
+                    unit = stringResource(R.string.quota_unit_min)
                 )
             }
 
             if (state.quota.countLimit <= 0 && state.quota.timeLimitMin <= 0) {
                 Text(
-                    "Aucun quota configuré — allez dans Paramètres pour en définir un.",
+                    stringResource(R.string.quota_no_config),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -316,15 +329,15 @@ fun AppToggleCard(
     onToggle: (String, Boolean) -> Unit
 ) {
     val appLabels = mapOf(
-        "com.instagram.android" to "Instagram Reels",
-        "com.google.android.youtube" to "YouTube Shorts",
-        "com.zhiliaoapp.musically" to "TikTok",
-        "com.ss.android.ugc.trill" to "TikTok (alt.)",
-        "com.facebook.katana" to "Facebook Reels",
-        "com.snapchat.android" to "Snapchat Spotlight",
-        "com.pinterest" to "Pinterest",
-        "com.twitter.android" to "X / Twitter",
-        "com.X.android" to "X"
+        "com.instagram.android" to stringResource(R.string.app_instagram),
+        "com.google.android.youtube" to stringResource(R.string.app_youtube),
+        "com.zhiliaoapp.musically" to stringResource(R.string.app_tiktok),
+        "com.ss.android.ugc.trill" to stringResource(R.string.app_tiktok_alt),
+        "com.facebook.katana" to stringResource(R.string.app_facebook),
+        "com.snapchat.android" to stringResource(R.string.app_snapchat),
+        "com.pinterest" to stringResource(R.string.app_pinterest),
+        "com.twitter.android" to stringResource(R.string.app_twitter),
+        "com.X.android" to stringResource(R.string.app_x)
     )
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -332,7 +345,11 @@ fun AppToggleCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text("Applications bloquées", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                stringResource(R.string.apps_blocked_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
             Spacer(Modifier.height(4.dp))
 
             appStates.forEach { (pkg, enabled) ->
@@ -375,8 +392,7 @@ fun StatusBadge(isActive: Boolean) {
             tint = if (isActive) SuccessGreen else BlockRed
         )
         Text(
-            if (isActive) "ReelGuard est actif et protège votre téléphone"
-            else "ReelGuard est inactif — activez les permissions",
+            stringResource(if (isActive) R.string.status_active else R.string.status_inactive),
             style = MaterialTheme.typography.bodyMedium,
             color = if (isActive) SuccessGreen else BlockRed
         )
@@ -384,8 +400,6 @@ fun StatusBadge(isActive: Boolean) {
 }
 
 // ── Bandeau publicitaire AdMob ───────────────────────────────────────────────
-// Remplacer l'ID ci-dessous par votre vrai ID après création du compte AdMob
-// ID de test Google (affiche des publicités de test, aucun revenu réel) :
 private const val AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
 
 @Composable
@@ -394,7 +408,7 @@ fun AdBanner() {
         modifier = Modifier.fillMaxWidth(),
         factory = { context ->
             AdView(context).apply {
-                setAdSize(AdSize.BANNER) // 320×50 dp, format standard accepté par toutes les régies
+                setAdSize(AdSize.BANNER)
                 adUnitId = AD_UNIT_ID
                 loadAd(AdRequest.Builder().build())
             }
@@ -409,10 +423,10 @@ fun FocusDurationDialog(onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Mode Focus") },
+        title = { Text(stringResource(R.string.focus_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Bloquer tous les Reels pendant :")
+                Text(stringResource(R.string.focus_dialog_question))
                 options.forEach { min ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -422,20 +436,26 @@ fun FocusDurationDialog(onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
                             selected = selected == min,
                             onClick = { selected = min }
                         )
-                        Text(
-                            if (min < 60) "$min minutes"
-                            else "${min / 60}h${if (min % 60 > 0) "${min % 60}min" else ""}",
-                            modifier = Modifier.padding(start = 4.dp)
-                        )
+                        val label = if (min < 60) {
+                            stringResource(R.string.focus_duration_min, min)
+                        } else {
+                            val h = min / 60
+                            val m = min % 60
+                            if (m > 0) "${stringResource(R.string.focus_duration_hour, h)}${m}min"
+                            else stringResource(R.string.focus_duration_hour, h)
+                        }
+                        Text(label, modifier = Modifier.padding(start = 4.dp))
                     }
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(selected) }) { Text("Démarrer") }
+            Button(onClick = { onConfirm(selected) }) {
+                Text(stringResource(R.string.btn_start_focus))
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annuler") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
         }
     )
 }

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">ReelGuard</string>
+    <string name="accessibility_service_label">ReelGuard — Reels-Blocker</string>
+    <string name="accessibility_service_description">ReelGuard überwacht Reels auf Instagram, YouTube Shorts, TikTok und anderen Apps und blockiert sie, wenn dein tägliches Kontingent erreicht ist. Es werden keine Daten außerhalb deines Telefons gesendet.</string>
+
+    <!-- Onboarding - Willkommen -->
+    <string name="onboarding_welcome_title">Willkommen bei ReelGuard</string>
+    <string name="onboarding_welcome_step1">ReelGuard blockiert Reels auf Instagram, YouTube Shorts, TikTok, Facebook, Snapchat und mehr.</string>
+    <string name="onboarding_welcome_step2">Lege ein tägliches Kontingent fest (Anzahl oder Dauer) und die App blockiert automatisch, wenn es erreicht ist.</string>
+    <string name="onboarding_welcome_step3">Alle deine Daten bleiben auf deinem Telefon — kein Server, kein Konto erforderlich.</string>
+
+    <!-- Onboarding - Barrierefreiheit -->
+    <string name="onboarding_accessibility_title">Berechtigung 1/2 — Bedienungshilfen</string>
+    <string name="onboarding_accessibility_step1">Tippe auf die Schaltfläche unten, um die Bedienungshilfen-Einstellungen zu öffnen.</string>
+    <string name="onboarding_accessibility_step2">Suche nach dem Abschnitt „Heruntergeladene Apps" oder „Installierte Dienste".</string>
+    <string name="onboarding_accessibility_step3">Tippe auf „ReelGuard".</string>
+    <string name="onboarding_accessibility_step4">Aktiviere den Schalter oben und bestätige mit „Zulassen".</string>
+    <string name="onboarding_accessibility_note">⚠️ Auf Samsung: Einstellungen → Bedienungshilfen → Installierte Apps → ReelGuard. Auf Pixel: Einstellungen → Bedienungshilfen → ReelGuard.</string>
+    <string name="onboarding_accessibility_button">Bedienungshilfen öffnen</string>
+
+    <!-- Onboarding - Einblendung -->
+    <string name="onboarding_overlay_title">Berechtigung 2/2 — Über anderen Apps anzeigen</string>
+    <string name="onboarding_overlay_step1">Tippe auf die Schaltfläche unten.</string>
+    <string name="onboarding_overlay_step2">Suche „ReelGuard" in der Liste und tippe darauf.</string>
+    <string name="onboarding_overlay_step3">Aktiviere „Über anderen Apps anzeigen".</string>
+    <string name="onboarding_overlay_note">⚠️ Auf manchen Geräten heißt diese Option „Im Vordergrund erscheinen" oder „Über anderen Apps zeichnen".</string>
+    <string name="onboarding_overlay_button">Anzeigeeinstellungen öffnen</string>
+
+    <!-- Onboarding - Konfiguration -->
+    <string name="onboarding_config_title">Kontingent konfigurieren</string>
+    <string name="onboarding_config_step1">Öffne Einstellungen (⚙️-Symbol oben rechts im Dashboard).</string>
+    <string name="onboarding_config_step2">Aktiviere „Zeitkontingent" und stelle es auf 15 Minuten ein — ein guter Ausgangspunkt.</string>
+    <string name="onboarding_config_step3">Oder aktiviere „Anzahlkontingent", wenn du lieber die Anzahl der Reels begrenzen möchtest.</string>
+    <string name="onboarding_config_step4">Tippe auf „Speichern".</string>
+    <string name="onboarding_config_note">Du erhältst eine Warnung bei 80 % deines Kontingents. Du kannst diese Einstellungen jederzeit ändern.</string>
+
+    <!-- Onboarding - Bereit -->
+    <string name="onboarding_ready_title">Los geht\'s!</string>
+    <string name="onboarding_ready_step1">ReelGuard überwacht jetzt deine Apps.</string>
+    <string name="onboarding_ready_step2">Das Dashboard zeigt deine heutige Nutzung.</string>
+    <string name="onboarding_ready_step3">Aktiviere den Fokusmodus, um Reels für eine bestimmte Dauer vollständig zu blockieren.</string>
+    <string name="onboarding_ready_note">Wenn die Blockierung nicht funktioniert, prüfe, ob beide Berechtigungen erteilt wurden (roter Banner = fehlende Berechtigung).</string>
+
+    <!-- Onboarding-Navigation -->
+    <string name="btn_next">Weiter</string>
+    <string name="btn_previous">Zurück</string>
+    <string name="btn_get_started">Loslegen!</string>
+
+    <!-- Dashboard -->
+    <string name="cd_settings">Einstellungen</string>
+    <string name="permission_accessibility_title">Bedienungshilfen-Dienst erforderlich</string>
+    <string name="permission_accessibility_desc">Aktiviere ReelGuard in den Bedienungshilfen-Einstellungen, um Reels zu erkennen.</string>
+    <string name="btn_enable">Aktivieren</string>
+    <string name="permission_overlay_title">Anzeigeberechtigung erforderlich</string>
+    <string name="permission_overlay_desc">ReelGuard muss einen Sperrbildschirm über anderen Apps anzeigen können.</string>
+    <string name="btn_allow">Zulassen</string>
+    <string name="streak_motivation">Du hältst dein Kontingent ein — weiter so!</string>
+    <string name="focus_active_title">Fokusmodus aktiv</string>
+    <string name="focus_active_remaining">Endet in %1$s</string>
+    <string name="btn_stop">Stoppen</string>
+    <string name="quota_today_title">Heutiges Kontingent</string>
+    <string name="quota_reels_label">Angesehene Reels</string>
+    <string name="quota_time_label">Reels-Zeit</string>
+    <string name="quota_unit_reels">Reels</string>
+    <string name="quota_unit_min">Min.</string>
+    <string name="quota_no_config">Kein Kontingent konfiguriert — gehe zu Einstellungen, um eines festzulegen.</string>
+    <string name="apps_blocked_title">Blockierte Apps</string>
+    <string name="status_active">ReelGuard ist aktiv und schützt dein Telefon</string>
+    <string name="status_inactive">ReelGuard ist inaktiv — Berechtigungen aktivieren</string>
+    <string name="btn_activate_focus">Fokusmodus aktivieren</string>
+    <string name="focus_dialog_title">Fokusmodus</string>
+    <string name="focus_dialog_question">Alle Reels blockieren für:</string>
+    <string name="focus_duration_min">%1$d Minuten</string>
+    <string name="focus_duration_hour">%1$d Std.</string>
+    <string name="btn_start_focus">Starten</string>
+    <string name="btn_cancel">Abbrechen</string>
+    <string name="streak_days">%1$d Tage in Folge!</string>
+
+    <!-- App-Namen -->
+    <string name="app_instagram">Instagram Reels</string>
+    <string name="app_youtube">YouTube Shorts</string>
+    <string name="app_tiktok">TikTok</string>
+    <string name="app_tiktok_alt">TikTok (alt.)</string>
+    <string name="app_facebook">Facebook Reels</string>
+    <string name="app_snapchat">Snapchat Spotlight</string>
+    <string name="app_pinterest">Pinterest</string>
+    <string name="app_twitter">X / Twitter</string>
+    <string name="app_x">X</string>
+
+    <!-- Einstellungen -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="btn_save">Speichern</string>
+    <string name="count_quota_title">Anzahlkontingent für Reels</string>
+    <string name="count_quota_toggle">Anzahlkontingent aktivieren</string>
+    <string name="count_quota_max">Tägliches Maximum: %1$d Reels</string>
+    <string name="time_quota_title">Zeitkontingent</string>
+    <string name="time_quota_toggle">Zeitkontingent aktivieren</string>
+    <string name="time_quota_max">Tägliches Maximum: %1$d Minuten</string>
+    <string name="schedule_title">Blockierte Zeitfenster</string>
+    <string name="schedule_toggle">Zeitfenster aktivieren</string>
+    <string name="btn_add_schedule">Zeitfenster hinzufügen</string>
+    <string name="cd_delete">Löschen</string>
+    <string name="reset_title">Täglicher Reset</string>
+    <string name="reset_hour_label">Reset-Zeit: %1$02d:00 Uhr</string>
+    <string name="reset_explanation">Kontingente werden täglich um %1$02d:00 Uhr zurückgesetzt.</string>
+    <string name="messaging_title">Nachrichten</string>
+    <string name="messaging_toggle">Reels in Direktnachrichten erlauben</string>
+    <string name="messaging_desc">In Direktnachrichten empfangene Reels (Instagram DM, Messenger, Snapchat) werden nicht blockiert.</string>
+    <string name="pin_title">Umgehungsschutz</string>
+    <string name="pin_toggle_label">PIN-Schutz</string>
+    <string name="pin_toggle_desc">PIN zum Deaktivieren von ReelGuard erforderlich</string>
+    <string name="pin_change">PIN ändern</string>
+    <string name="pin_delay_info">Vor jeder Deaktivierung gilt eine Verzögerung von 30 Sekunden.</string>
+    <string name="pin_dialog_title">PIN festlegen</string>
+    <string name="pin_field_label">PIN (4–6 Ziffern)</string>
+    <string name="pin_confirm_label">PIN bestätigen</string>
+    <string name="pin_error">PINs stimmen nicht überein</string>
+    <string name="btn_validate">Bestätigen</string>
+    <string name="schedule_dialog_title">Zeitfenster hinzufügen</string>
+    <string name="schedule_from_to">Von %1$02d Uhr bis %2$02d Uhr</string>
+    <string name="schedule_start_hour">Startzeit: %1$02d Uhr</string>
+    <string name="schedule_end_hour">Endzeit: %1$02d Uhr</string>
+    <string name="schedule_label_hint">Bezeichnung (z. B. Nacht)</string>
+    <string name="btn_add">Hinzufügen</string>
+
+    <!-- Overlay / Sperrbildschirm -->
+    <string name="overlay_title">Reels-Kontingent erreicht</string>
+    <string name="overlay_back_btn">← Zurück</string>
+    <string name="overlay_count_exceeded">Du hast heute alle deine Reels gesehen (%1$d Maximum).\nBis morgen! 💪</string>
+    <string name="overlay_time_exceeded">Du hast heute deine gesamte Reels-Zeit verbraucht (%1$d Min.).\nBis morgen! 💪</string>
+    <string name="overlay_schedule_blocked">Reels sind während dieses Zeitfensters blockiert.\n%1$s</string>
+    <string name="overlay_focus_active">Fokusmodus aktiv bis %1$s.\nDu schaffst das! 🎯</string>
+    <string name="overlay_default">Zugriff auf Reels blockiert.</string>
+    <string name="overlay_streak">🔥 %1$d Tage in Folge!</string>
+    <string name="warning_reels_remaining">Noch %1$d Reels übrig</string>
+    <string name="warning_min_remaining">Noch %1$d Min. übrig</string>
+
+    <!-- Service-Toasts -->
+    <string name="toast_tiktok_blocked">🛑 TikTok blockiert — Kontingent erreicht</string>
+    <string name="toast_instagram_blocked">🛑 Instagram Reels blockiert — Kontingent erreicht</string>
+    <string name="toast_youtube_blocked">🛑 YouTube Shorts blockiert — Kontingent erreicht</string>
+    <string name="toast_facebook_blocked">🛑 Facebook Reels blockiert — Kontingent erreicht</string>
+    <string name="toast_snapchat_blocked">🛑 Spotlight blockiert — Kontingent erreicht</string>
+</resources>

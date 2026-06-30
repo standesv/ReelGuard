@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">ReelGuard</string>
+    <string name="accessibility_service_label">ReelGuard — Bloqueador de Reels</string>
+    <string name="accessibility_service_description">ReelGuard supervisa los Reels en Instagram, YouTube Shorts, TikTok y otras apps para bloquearlos cuando se alcanza tu cuota diaria. No se envía ningún dato fuera de tu teléfono.</string>
+
+    <!-- Onboarding - Bienvenida -->
+    <string name="onboarding_welcome_title">Bienvenido a ReelGuard</string>
+    <string name="onboarding_welcome_step1">ReelGuard bloquea los Reels en Instagram, YouTube Shorts, TikTok, Facebook, Snapchat y más.</string>
+    <string name="onboarding_welcome_step2">Establece una cuota diaria (cantidad o duración) y la app bloquea automáticamente cuando se alcanza.</string>
+    <string name="onboarding_welcome_step3">Todos tus datos se quedan en tu teléfono — sin servidor, sin cuenta requerida.</string>
+
+    <!-- Onboarding - Accesibilidad -->
+    <string name="onboarding_accessibility_title">Permiso 1/2 — Servicio de accesibilidad</string>
+    <string name="onboarding_accessibility_step1">Pulsa el botón de abajo para abrir los ajustes de accesibilidad.</string>
+    <string name="onboarding_accessibility_step2">Busca la sección «Apps descargadas» o «Servicios instalados».</string>
+    <string name="onboarding_accessibility_step3">Pulsa «ReelGuard».</string>
+    <string name="onboarding_accessibility_step4">Activa el interruptor superior y confirma pulsando «Permitir».</string>
+    <string name="onboarding_accessibility_note">⚠️ En Samsung: Ajustes → Accesibilidad → Apps instaladas → ReelGuard. En Pixel: Ajustes → Accesibilidad → ReelGuard.</string>
+    <string name="onboarding_accessibility_button">Abrir ajustes de accesibilidad</string>
+
+    <!-- Onboarding - Superposición -->
+    <string name="onboarding_overlay_title">Permiso 2/2 — Mostrar sobre otras apps</string>
+    <string name="onboarding_overlay_step1">Pulsa el botón de abajo.</string>
+    <string name="onboarding_overlay_step2">Encuentra «ReelGuard» en la lista y pulsa sobre él.</string>
+    <string name="onboarding_overlay_step3">Activa «Permitir mostrar sobre otras apps».</string>
+    <string name="onboarding_overlay_note">⚠️ En algunos dispositivos se llama «Aparecer encima» o «Dibujar sobre otras apps».</string>
+    <string name="onboarding_overlay_button">Abrir ajustes de visualización</string>
+
+    <!-- Onboarding - Configuración -->
+    <string name="onboarding_config_title">Configura tu cuota</string>
+    <string name="onboarding_config_step1">Abre Ajustes (icono ⚙️ en la parte superior derecha del panel).</string>
+    <string name="onboarding_config_step2">Activa «Cuota de tiempo» y configúrala en 15 minutos — un buen punto de partida.</string>
+    <string name="onboarding_config_step3">O activa «Cuota de cantidad» si prefieres limitar el número de Reels.</string>
+    <string name="onboarding_config_step4">Pulsa «Guardar».</string>
+    <string name="onboarding_config_note">Recibirás una advertencia al 80 % de tu cuota. Puedes cambiar estos ajustes en cualquier momento.</string>
+
+    <!-- Onboarding - Listo -->
+    <string name="onboarding_ready_title">¡Vamos allá!</string>
+    <string name="onboarding_ready_step1">ReelGuard ahora supervisa tus aplicaciones.</string>
+    <string name="onboarding_ready_step2">El panel muestra tu uso de hoy.</string>
+    <string name="onboarding_ready_step3">Activa el Modo Foco para bloquear completamente los Reels durante un tiempo definido.</string>
+    <string name="onboarding_ready_note">Si el bloqueo no funciona, comprueba que ambos permisos están concedidos (banner rojo = permiso faltante).</string>
+
+    <!-- Navegación onboarding -->
+    <string name="btn_next">Siguiente</string>
+    <string name="btn_previous">Anterior</string>
+    <string name="btn_get_started">¡Empezar!</string>
+
+    <!-- Panel principal -->
+    <string name="cd_settings">Ajustes</string>
+    <string name="permission_accessibility_title">Servicio de accesibilidad requerido</string>
+    <string name="permission_accessibility_desc">Activa ReelGuard en los ajustes de accesibilidad para detectar los Reels.</string>
+    <string name="btn_enable">Activar</string>
+    <string name="permission_overlay_title">Permiso de visualización requerido</string>
+    <string name="permission_overlay_desc">ReelGuard necesita mostrar una pantalla de bloqueo sobre otras apps.</string>
+    <string name="btn_allow">Permitir</string>
+    <string name="streak_motivation">Estás respetando tus cuotas — ¡sigue así!</string>
+    <string name="focus_active_title">Modo Foco activo</string>
+    <string name="focus_active_remaining">Termina en %1$s</string>
+    <string name="btn_stop">Detener</string>
+    <string name="quota_today_title">Cuotas de hoy</string>
+    <string name="quota_reels_label">Reels vistos</string>
+    <string name="quota_time_label">Tiempo en Reels</string>
+    <string name="quota_unit_reels">reels</string>
+    <string name="quota_unit_min">min</string>
+    <string name="quota_no_config">Sin cuota configurada — ve a Ajustes para definir una.</string>
+    <string name="apps_blocked_title">Apps bloqueadas</string>
+    <string name="status_active">ReelGuard está activo y protegiendo tu teléfono</string>
+    <string name="status_inactive">ReelGuard está inactivo — activa los permisos</string>
+    <string name="btn_activate_focus">Activar Modo Foco</string>
+    <string name="focus_dialog_title">Modo Foco</string>
+    <string name="focus_dialog_question">Bloquear todos los Reels durante:</string>
+    <string name="focus_duration_min">%1$d minutos</string>
+    <string name="focus_duration_hour">%1$dh</string>
+    <string name="btn_start_focus">Iniciar</string>
+    <string name="btn_cancel">Cancelar</string>
+    <string name="streak_days">¡%1$d días seguidos!</string>
+
+    <!-- Nombres de apps -->
+    <string name="app_instagram">Instagram Reels</string>
+    <string name="app_youtube">YouTube Shorts</string>
+    <string name="app_tiktok">TikTok</string>
+    <string name="app_tiktok_alt">TikTok (alt.)</string>
+    <string name="app_facebook">Facebook Reels</string>
+    <string name="app_snapchat">Snapchat Spotlight</string>
+    <string name="app_pinterest">Pinterest</string>
+    <string name="app_twitter">X / Twitter</string>
+    <string name="app_x">X</string>
+
+    <!-- Ajustes -->
+    <string name="settings_title">Ajustes</string>
+    <string name="btn_save">Guardar</string>
+    <string name="count_quota_title">Cuota de cantidad de Reels</string>
+    <string name="count_quota_toggle">Activar cuota de cantidad</string>
+    <string name="count_quota_max">Máximo diario: %1$d reels</string>
+    <string name="time_quota_title">Cuota de tiempo</string>
+    <string name="time_quota_toggle">Activar cuota de tiempo</string>
+    <string name="time_quota_max">Máximo diario: %1$d minutos</string>
+    <string name="schedule_title">Franjas horarias bloqueadas</string>
+    <string name="schedule_toggle">Activar franjas horarias</string>
+    <string name="btn_add_schedule">Añadir una franja</string>
+    <string name="cd_delete">Eliminar</string>
+    <string name="reset_title">Reinicio diario</string>
+    <string name="reset_hour_label">Hora de reinicio: %1$02dh00</string>
+    <string name="reset_explanation">Las cuotas se reinician cada día a las %1$02dh00.</string>
+    <string name="messaging_title">Mensajería</string>
+    <string name="messaging_toggle">Permitir reels en mensajes privados</string>
+    <string name="messaging_desc">Los reels recibidos en mensajes privados (Instagram DM, Messenger, Snapchat) no se bloquean.</string>
+    <string name="pin_title">Antibypass</string>
+    <string name="pin_toggle_label">PIN de protección</string>
+    <string name="pin_toggle_desc">Requerir un PIN para desactivar ReelGuard</string>
+    <string name="pin_change">Cambiar PIN</string>
+    <string name="pin_delay_info">Se aplica un retraso de 30 segundos antes de cualquier desactivación.</string>
+    <string name="pin_dialog_title">Establecer un PIN</string>
+    <string name="pin_field_label">PIN (4–6 dígitos)</string>
+    <string name="pin_confirm_label">Confirmar PIN</string>
+    <string name="pin_error">Los PIN no coinciden</string>
+    <string name="btn_validate">Validar</string>
+    <string name="schedule_dialog_title">Añadir una franja horaria</string>
+    <string name="schedule_from_to">De %1$02dh a %2$02dh</string>
+    <string name="schedule_start_hour">Inicio: %1$02dh</string>
+    <string name="schedule_end_hour">Fin: %1$02dh</string>
+    <string name="schedule_label_hint">Etiqueta (ej: Noche)</string>
+    <string name="btn_add">Añadir</string>
+
+    <!-- Overlay / pantalla de bloqueo -->
+    <string name="overlay_title">Cuota de Reels alcanzada</string>
+    <string name="overlay_back_btn">← Atrás</string>
+    <string name="overlay_count_exceeded">Has visto todos tus Reels de hoy (%1$d máximo).\n¡Vuelve mañana! 💪</string>
+    <string name="overlay_time_exceeded">Has usado todo tu tiempo de Reels de hoy (%1$d min).\n¡Vuelve mañana! 💪</string>
+    <string name="overlay_schedule_blocked">Los Reels están bloqueados durante esta franja horaria.\n%1$s</string>
+    <string name="overlay_focus_active">Modo Foco activo hasta las %1$s.\n¡Tú puedes! 🎯</string>
+    <string name="overlay_default">Acceso a los Reels bloqueado.</string>
+    <string name="overlay_streak">🔥 ¡%1$d días seguidos!</string>
+    <string name="warning_reels_remaining">%1$d reels restantes</string>
+    <string name="warning_min_remaining">%1$d min restantes</string>
+
+    <!-- Toasts del servicio -->
+    <string name="toast_tiktok_blocked">🛑 TikTok bloqueado — cuota alcanzada</string>
+    <string name="toast_instagram_blocked">🛑 Instagram Reels bloqueado — cuota alcanzada</string>
+    <string name="toast_youtube_blocked">🛑 YouTube Shorts bloqueado — cuota alcanzada</string>
+    <string name="toast_facebook_blocked">🛑 Facebook Reels bloqueado — cuota alcanzada</string>
+    <string name="toast_snapchat_blocked">🛑 Spotlight bloqueado — cuota alcanzada</string>
+</resources>

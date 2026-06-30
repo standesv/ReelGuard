@@ -1,4 +1,5 @@
 package com.reelguard.app.service
+import com.reelguard.app.R
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
@@ -185,15 +186,15 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 scheduleAutoExit(2000)
             }
             pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill") ->
-                showToastAndExit("TikTok bloqué — quota atteint")
+                showToastAndExit(getString(R.string.toast_tiktok_blocked))
             pkg == "com.instagram.android" ->
-                showToastAndExit("Instagram Reels bloqués — quota atteint")
+                showToastAndExit(getString(R.string.toast_instagram_blocked))
             pkg == "com.google.android.youtube" ->
-                showToastAndExit("YouTube Shorts bloqués — quota atteint")
+                showToastAndExit(getString(R.string.toast_youtube_blocked))
             pkg == "com.facebook.katana" ->
-                showToastAndExit("Facebook Reels bloqués — quota atteint")
+                showToastAndExit(getString(R.string.toast_facebook_blocked))
             pkg == "com.snapchat.android" ->
-                showToastAndExit("Spotlight bloqué — quota atteint")
+                showToastAndExit(getString(R.string.toast_snapchat_blocked))
             else -> {
                 overlayManager.showBlockOverlay(status)
                 scheduleAutoExit(2000)
@@ -278,7 +279,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ── Actions système ──────────────────────────────────────────────────────
 
     private fun showToastAndExit(message: String) {
-        Toast.makeText(applicationContext, "🛑 $message", Toast.LENGTH_SHORT).show()
+        Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
         performGlobalAction(GLOBAL_ACTION_BACK)
     }
 

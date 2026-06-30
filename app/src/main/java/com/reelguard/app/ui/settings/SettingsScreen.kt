@@ -12,12 +12,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.reelguard.app.R
 import com.reelguard.app.manager.QuotaManager
 import com.reelguard.app.manager.ScheduleRule
 
@@ -67,15 +69,15 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Parametres") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
                     }
                 },
                 actions = {
                     TextButton(onClick = { vm.save() }) {
-                        Text("Sauvegarder", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.btn_save), fontWeight = FontWeight.Bold)
                     }
                 }
             )
@@ -97,18 +99,18 @@ fun SettingsScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Tag, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("Quota par nombre de Reels", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.count_quota_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Activer le quota par nombre")
+                        Text(stringResource(R.string.count_quota_toggle))
                         Switch(checked = vm.countEnabled, onCheckedChange = { vm.countEnabled = it })
                     }
                     if (vm.countEnabled) {
-                        Text("Maximum par jour : ${vm.countLimit} reels")
+                        Text(stringResource(R.string.count_quota_max, vm.countLimit))
                         Slider(
                             value = vm.countLimit.toFloat(),
                             onValueChange = { vm.countLimit = it.toInt() },
@@ -127,18 +129,18 @@ fun SettingsScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("Quota par duree", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.time_quota_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Activer le quota en temps")
+                        Text(stringResource(R.string.time_quota_toggle))
                         Switch(checked = vm.timeEnabled, onCheckedChange = { vm.timeEnabled = it })
                     }
                     if (vm.timeEnabled) {
-                        Text("Maximum par jour : ${vm.timeLimitMin} minutes")
+                        Text(stringResource(R.string.time_quota_max, vm.timeLimitMin))
                         Slider(
                             value = vm.timeLimitMin.toFloat(),
                             onValueChange = { vm.timeLimitMin = it.toInt() },
@@ -157,14 +159,14 @@ fun SettingsScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("Plages horaires bloquees", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.schedule_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Activer les plages horaires")
+                        Text(stringResource(R.string.schedule_toggle))
                         Switch(checked = vm.scheduleEnabled, onCheckedChange = { vm.scheduleEnabled = it })
                     }
                     if (vm.scheduleEnabled) {
@@ -174,11 +176,15 @@ fun SettingsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(rule.label.ifEmpty { "${rule.startHour}h-${rule.endHour}h" })
+                                Text(
+                                    rule.label.ifEmpty {
+                                        stringResource(R.string.schedule_from_to, rule.startHour, rule.endHour)
+                                    }
+                                )
                                 IconButton(onClick = {
                                     vm.scheduleRules = vm.scheduleRules.toMutableList().also { it.removeAt(idx) }
                                 }) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Supprimer")
+                                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_delete))
                                 }
                             }
                         }
@@ -188,7 +194,7 @@ fun SettingsScreen(
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(Modifier.width(4.dp))
-                            Text("Ajouter une plage")
+                            Text(stringResource(R.string.btn_add_schedule))
                         }
                     }
                 }
@@ -202,9 +208,9 @@ fun SettingsScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("Reinitialisation quotidienne", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.reset_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
-                    Text("Heure de reset : ${"%02d".format(vm.resetHour)}h00")
+                    Text(stringResource(R.string.reset_hour_label, vm.resetHour))
                     Slider(
                         value = vm.resetHour.toFloat(),
                         onValueChange = { vm.resetHour = it.toInt() },
@@ -212,7 +218,7 @@ fun SettingsScreen(
                         steps = 22
                     )
                     Text(
-                        "Les quotas se remettent a zero chaque jour a ${"%02d".format(vm.resetHour)}h00.",
+                        stringResource(R.string.reset_explanation, vm.resetHour),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -227,7 +233,7 @@ fun SettingsScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("Messagerie", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.messaging_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -235,9 +241,9 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Autoriser les reels en DM")
+                            Text(stringResource(R.string.messaging_toggle))
                             Text(
-                                "Les reels reçus dans les messages privés (Instagram DM, Messenger, Snapchat) ne sont pas bloqués.",
+                                stringResource(R.string.messaging_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -256,7 +262,7 @@ fun SettingsScreen(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text("Anti-contournement", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.pin_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -264,9 +270,9 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("PIN de protection")
+                            Text(stringResource(R.string.pin_toggle_label))
                             Text(
-                                "Demander un PIN pour desactiver ReelGuard",
+                                stringResource(R.string.pin_toggle_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -281,12 +287,12 @@ fun SettingsScreen(
                     }
                     if (vm.pinEnabled) {
                         TextButton(onClick = { showPinDialog = true }) {
-                            Text("Changer le PIN")
+                            Text(stringResource(R.string.pin_change))
                         }
                     }
                     HorizontalDivider()
                     Text(
-                        "Un delai de 30 secondes s'applique avant toute desactivation.",
+                        stringResource(R.string.pin_delay_info),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -324,13 +330,13 @@ fun PinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Definir un PIN") },
+        title = { Text(stringResource(R.string.pin_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = pin,
                     onValueChange = { pin = it.filter { c -> c.isDigit() }.take(6) },
-                    label = { Text("PIN (4-6 chiffres)") },
+                    label = { Text(stringResource(R.string.pin_field_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true
@@ -338,11 +344,11 @@ fun PinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
                 OutlinedTextField(
                     value = confirm,
                     onValueChange = { confirm = it.filter { c -> c.isDigit() }.take(6) },
-                    label = { Text("Confirmer le PIN") },
+                    label = { Text(stringResource(R.string.pin_confirm_label)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                     visualTransformation = PasswordVisualTransformation(),
                     isError = error,
-                    supportingText = { if (error) Text("Les PINs ne correspondent pas") },
+                    supportingText = { if (error) Text(stringResource(R.string.pin_error)) },
                     singleLine = true
                 )
             }
@@ -351,9 +357,11 @@ fun PinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
             Button(
                 onClick = { onConfirm(pin) },
                 enabled = pin.length >= 4 && pin == confirm
-            ) { Text("Valider") }
+            ) { Text(stringResource(R.string.btn_validate)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
+        }
     )
 }
 
@@ -365,17 +373,17 @@ fun AddScheduleDialog(onDismiss: () -> Unit, onConfirm: (ScheduleRule) -> Unit) 
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Ajouter une plage horaire") },
+        title = { Text(stringResource(R.string.schedule_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("De ${"%02d".format(startHour)}h a ${"%02d".format(endHour)}h")
-                Text("Heure de debut : ${"%02d".format(startHour)}h")
+                Text(stringResource(R.string.schedule_from_to, startHour, endHour))
+                Text(stringResource(R.string.schedule_start_hour, startHour))
                 Slider(
                     value = startHour.toFloat(),
                     onValueChange = { startHour = it.toInt() },
                     valueRange = 0f..23f, steps = 22
                 )
-                Text("Heure de fin : ${"%02d".format(endHour)}h")
+                Text(stringResource(R.string.schedule_end_hour, endHour))
                 Slider(
                     value = endHour.toFloat(),
                     onValueChange = { endHour = it.toInt() },
@@ -384,7 +392,7 @@ fun AddScheduleDialog(onDismiss: () -> Unit, onConfirm: (ScheduleRule) -> Unit) 
                 OutlinedTextField(
                     value = label,
                     onValueChange = { label = it },
-                    label = { Text("Label (ex: Nuit)") },
+                    label = { Text(stringResource(R.string.schedule_label_hint)) },
                     singleLine = true
                 )
             }
@@ -392,8 +400,10 @@ fun AddScheduleDialog(onDismiss: () -> Unit, onConfirm: (ScheduleRule) -> Unit) 
         confirmButton = {
             Button(onClick = {
                 onConfirm(ScheduleRule(startHour = startHour, endHour = endHour, label = label))
-            }) { Text("Ajouter") }
+            }) { Text(stringResource(R.string.btn_add)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Annuler") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
+        }
     )
 }

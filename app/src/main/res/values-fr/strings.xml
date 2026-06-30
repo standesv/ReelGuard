@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">ReelGuard</string>
+    <string name="accessibility_service_label">ReelGuard — Bloqueur de Reels</string>
+    <string name="accessibility_service_description">ReelGuard surveille les Reels sur Instagram, YouTube Shorts, TikTok et d\'autres apps pour les bloquer lorsque votre quota quotidien est atteint. Aucune donnée n\'est envoyée en dehors de votre téléphone.</string>
+
+    <!-- Onboarding - Bienvenue -->
+    <string name="onboarding_welcome_title">Bienvenue sur ReelGuard</string>
+    <string name="onboarding_welcome_step1">ReelGuard bloque les Reels sur Instagram, YouTube Shorts, TikTok, Facebook, Snapchat et bien d\'autres.</string>
+    <string name="onboarding_welcome_step2">Définissez un quota quotidien (nombre ou durée) et l\'app bloque automatiquement quand il est atteint.</string>
+    <string name="onboarding_welcome_step3">Toutes vos données restent sur votre téléphone — pas de serveur, pas de compte requis.</string>
+
+    <!-- Onboarding - Accessibilité -->
+    <string name="onboarding_accessibility_title">Permission 1/2 — Service d\'accessibilité</string>
+    <string name="onboarding_accessibility_step1">Appuyez sur le bouton ci-dessous pour ouvrir les paramètres d\'accessibilité.</string>
+    <string name="onboarding_accessibility_step2">Cherchez la section « Applications téléchargées » ou « Services installés ».</string>
+    <string name="onboarding_accessibility_step3">Appuyez sur « ReelGuard ».</string>
+    <string name="onboarding_accessibility_step4">Activez l\'interrupteur en haut, puis confirmez en appuyant sur « Autoriser ».</string>
+    <string name="onboarding_accessibility_note">⚠️ Sur Samsung : Paramètres → Accessibilité → Applications installées → ReelGuard. Sur Pixel : Paramètres → Accessibilité → ReelGuard.</string>
+    <string name="onboarding_accessibility_button">Ouvrir les paramètres d\'accessibilité</string>
+
+    <!-- Onboarding - Superposition -->
+    <string name="onboarding_overlay_title">Permission 2/2 — Afficher par-dessus les autres apps</string>
+    <string name="onboarding_overlay_step1">Appuyez sur le bouton ci-dessous.</string>
+    <string name="onboarding_overlay_step2">Trouvez « ReelGuard » dans la liste et appuyez dessus.</string>
+    <string name="onboarding_overlay_step3">Activez « Autoriser l\'affichage par-dessus les autres apps ».</string>
+    <string name="onboarding_overlay_note">⚠️ Sur certains appareils, cette option s\'appelle « Apparaître au premier plan » ou « Afficher au-dessus des autres apps ».</string>
+    <string name="onboarding_overlay_button">Ouvrir les paramètres d\'affichage</string>
+
+    <!-- Onboarding - Config -->
+    <string name="onboarding_config_title">Configurez votre quota</string>
+    <string name="onboarding_config_step1">Ouvrez les Paramètres (icône ⚙️ en haut à droite du tableau de bord).</string>
+    <string name="onboarding_config_step2">Activez « Quota temps » et réglez-le sur 15 minutes — un bon point de départ.</string>
+    <string name="onboarding_config_step3">Ou activez « Quota nombre » si vous préférez limiter le nombre de Reels.</string>
+    <string name="onboarding_config_step4">Appuyez sur « Enregistrer ».</string>
+    <string name="onboarding_config_note">Vous recevrez un avertissement à 80 % de votre quota. Vous pouvez modifier ces paramètres à tout moment.</string>
+
+    <!-- Onboarding - Prêt -->
+    <string name="onboarding_ready_title">C\'est parti !</string>
+    <string name="onboarding_ready_step1">ReelGuard surveille maintenant vos applications.</string>
+    <string name="onboarding_ready_step2">Le tableau de bord affiche votre consommation du jour.</string>
+    <string name="onboarding_ready_step3">Activez le Mode Focus pour bloquer complètement les Reels pendant une durée définie.</string>
+    <string name="onboarding_ready_note">Si le blocage ne fonctionne pas, vérifiez que les deux permissions sont accordées (bandeau rouge = permission manquante).</string>
+
+    <!-- Navigation onboarding -->
+    <string name="btn_next">Suivant</string>
+    <string name="btn_previous">Précédent</string>
+    <string name="btn_get_started">C\'est parti !</string>
+
+    <!-- Tableau de bord -->
+    <string name="cd_settings">Paramètres</string>
+    <string name="permission_accessibility_title">Service d\'accessibilité requis</string>
+    <string name="permission_accessibility_desc">Activez ReelGuard dans les paramètres d\'accessibilité pour détecter les Reels.</string>
+    <string name="btn_enable">Activer</string>
+    <string name="permission_overlay_title">Permission d\'affichage requise</string>
+    <string name="permission_overlay_desc">ReelGuard doit pouvoir afficher un écran de blocage par-dessus les autres applications.</string>
+    <string name="btn_allow">Autoriser</string>
+    <string name="streak_motivation">Vous respectez vos quotas — continuez comme ça !</string>
+    <string name="focus_active_title">Mode Focus actif</string>
+    <string name="focus_active_remaining">Se termine dans %1$s</string>
+    <string name="btn_stop">Arrêter</string>
+    <string name="quota_today_title">Quotas du jour</string>
+    <string name="quota_reels_label">Reels regardés</string>
+    <string name="quota_time_label">Temps de Reels</string>
+    <string name="quota_unit_reels">reels</string>
+    <string name="quota_unit_min">min</string>
+    <string name="quota_no_config">Aucun quota configuré — allez dans Paramètres pour en définir un.</string>
+    <string name="apps_blocked_title">Applications bloquées</string>
+    <string name="status_active">ReelGuard est actif et protège votre téléphone</string>
+    <string name="status_inactive">ReelGuard est inactif — activez les permissions</string>
+    <string name="btn_activate_focus">Activer le Mode Focus</string>
+    <string name="focus_dialog_title">Mode Focus</string>
+    <string name="focus_dialog_question">Bloquer tous les Reels pendant :</string>
+    <string name="focus_duration_min">%1$d minutes</string>
+    <string name="focus_duration_hour">%1$dh</string>
+    <string name="btn_start_focus">Démarrer</string>
+    <string name="btn_cancel">Annuler</string>
+    <string name="streak_days">%1$d jours de suite !</string>
+
+    <!-- Noms des apps -->
+    <string name="app_instagram">Instagram Reels</string>
+    <string name="app_youtube">YouTube Shorts</string>
+    <string name="app_tiktok">TikTok</string>
+    <string name="app_tiktok_alt">TikTok (alt.)</string>
+    <string name="app_facebook">Facebook Reels</string>
+    <string name="app_snapchat">Snapchat Spotlight</string>
+    <string name="app_pinterest">Pinterest</string>
+    <string name="app_twitter">X / Twitter</string>
+    <string name="app_x">X</string>
+
+    <!-- Paramètres -->
+    <string name="settings_title">Paramètres</string>
+    <string name="btn_save">Enregistrer</string>
+    <string name="count_quota_title">Quota nombre de Reels</string>
+    <string name="count_quota_toggle">Activer le quota nombre</string>
+    <string name="count_quota_max">Maximum par jour : %1$d reels</string>
+    <string name="time_quota_title">Quota temps</string>
+    <string name="time_quota_toggle">Activer le quota temps</string>
+    <string name="time_quota_max">Maximum par jour : %1$d minutes</string>
+    <string name="schedule_title">Plages horaires bloquées</string>
+    <string name="schedule_toggle">Activer les plages horaires</string>
+    <string name="btn_add_schedule">Ajouter une plage</string>
+    <string name="cd_delete">Supprimer</string>
+    <string name="reset_title">Reset quotidien</string>
+    <string name="reset_hour_label">Heure de reset : %1$02dh00</string>
+    <string name="reset_explanation">Les quotas se réinitialisent chaque jour à %1$02dh00.</string>
+    <string name="messaging_title">Messagerie</string>
+    <string name="messaging_toggle">Autoriser les reels en DM</string>
+    <string name="messaging_desc">Les reels reçus dans les messages privés (Instagram DM, Messenger, Snapchat) ne sont pas bloqués.</string>
+    <string name="pin_title">Anti-contournement</string>
+    <string name="pin_toggle_label">PIN de protection</string>
+    <string name="pin_toggle_desc">Exiger un PIN pour désactiver ReelGuard</string>
+    <string name="pin_change">Modifier le PIN</string>
+    <string name="pin_delay_info">Un délai de 30 secondes s\'applique avant toute désactivation.</string>
+    <string name="pin_dialog_title">Définir un PIN</string>
+    <string name="pin_field_label">PIN (4 à 6 chiffres)</string>
+    <string name="pin_confirm_label">Confirmer le PIN</string>
+    <string name="pin_error">Les PIN ne correspondent pas</string>
+    <string name="btn_validate">Valider</string>
+    <string name="schedule_dialog_title">Ajouter une plage horaire</string>
+    <string name="schedule_from_to">De %1$02dh à %2$02dh</string>
+    <string name="schedule_start_hour">Début : %1$02dh</string>
+    <string name="schedule_end_hour">Fin : %1$02dh</string>
+    <string name="schedule_label_hint">Libellé (ex : Nuit)</string>
+    <string name="btn_add">Ajouter</string>
+
+    <!-- Overlay / écran de blocage -->
+    <string name="overlay_title">Quota de Reels atteint</string>
+    <string name="overlay_back_btn">← Retour</string>
+    <string name="overlay_count_exceeded">Tu as regardé tous tes Reels du jour (%1$d maximum).\nReviens demain ! 💪</string>
+    <string name="overlay_time_exceeded">Tu as utilisé tout ton temps Reels d\'aujourd\'hui (%1$d min).\nReviens demain ! 💪</string>
+    <string name="overlay_schedule_blocked">Les Reels sont bloqués pendant cette plage horaire.\n%1$s</string>
+    <string name="overlay_focus_active">Mode Focus actif jusqu\'à %1$s.\nTu tiens bon ! 🎯</string>
+    <string name="overlay_default">Accès aux Reels bloqué.</string>
+    <string name="overlay_streak">🔥 %1$d jours de suite respectés !</string>
+    <string name="warning_reels_remaining">%1$d reels restants</string>
+    <string name="warning_min_remaining">%1$d min restantes</string>
+
+    <!-- Toasts du service -->
+    <string name="toast_tiktok_blocked">🛑 TikTok bloqué — quota atteint</string>
+    <string name="toast_instagram_blocked">🛑 Instagram Reels bloqué — quota atteint</string>
+    <string name="toast_youtube_blocked">🛑 YouTube Shorts bloqué — quota atteint</string>
+    <string name="toast_facebook_blocked">🛑 Facebook Reels bloqué — quota atteint</string>
+    <string name="toast_snapchat_blocked">🛑 Spotlight bloqué — quota atteint</string>
+</resources>

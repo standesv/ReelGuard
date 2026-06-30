@@ -5,11 +5,11 @@ import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
 import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
+import com.reelguard.app.R
 
 class OverlayManager(private val context: Context) {
 
@@ -47,7 +47,6 @@ class OverlayManager(private val context: Context) {
 
     fun showBlockOverlay(status: QuotaStatus) {
         if (overlayView != null) {
-            // Mettre à jour le message si déjà affiché
             overlayView?.findViewById<TextView>(android.R.id.message)?.text =
                 buildBlockMessage(status)
             return
@@ -96,9 +95,6 @@ class OverlayManager(private val context: Context) {
     // ---------- Construction des vues ----------
 
     private fun buildBlockView(status: QuotaStatus): View {
-        val view = View(context)
-
-        // Fond semi-opaque foncé
         val rootLayout = android.widget.FrameLayout(context).apply {
             setBackgroundColor(Color.argb(240, 18, 18, 18))
         }
@@ -109,16 +105,14 @@ class OverlayManager(private val context: Context) {
             setPadding(80, 80, 80, 80)
         }
 
-        // Icône (texte emoji)
         val iconText = TextView(context).apply {
             text = "🛑"
             textSize = 64f
             gravity = Gravity.CENTER
         }
 
-        // Titre
         val title = TextView(context).apply {
-            text = "Quota de Reels atteint"
+            text = context.getString(R.string.overlay_title)
             textSize = 24f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
@@ -126,7 +120,6 @@ class OverlayManager(private val context: Context) {
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
 
-        // Message détaillé
         val message = TextView(context).apply {
             id = android.R.id.message
             text = buildBlockMessage(status)
@@ -136,23 +129,22 @@ class OverlayManager(private val context: Context) {
             setPadding(0, 0, 0, 40)
         }
 
-        // Bouton retour
         val backButton = Button(context).apply {
-            text = "← Retour"
+            text = context.getString(R.string.overlay_back_btn)
             textSize = 16f
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.parseColor("#6200EE"))
             setPadding(48, 24, 48, 24)
             setOnClickListener {
-                // Simuler le bouton back système
                 context.sendBroadcast(android.content.Intent("com.reelguard.action.PRESS_BACK"))
                 hideBlock()
             }
         }
 
-        // Streak / motivation
         val streakText = TextView(context).apply {
-            text = if (status.streakDays > 0) "🔥 ${status.streakDays} jours de suite respectés !" else ""
+            text = if (status.streakDays > 0)
+                context.getString(R.string.overlay_streak, status.streakDays)
+            else ""
             textSize = 14f
             setTextColor(Color.parseColor("#FFD700"))
             gravity = Gravity.CENTER
@@ -176,8 +168,10 @@ class OverlayManager(private val context: Context) {
     private fun buildWarningView(status: QuotaStatus): View {
         return TextView(context).apply {
             val remaining = when {
-                status.countRemaining >= 0 -> "${status.countRemaining} reels restants"
-                status.timeRemainingMs >= 0 -> "${status.timeRemainingMs / 60000} min restantes"
+                status.countRemaining >= 0 ->
+                    context.getString(R.string.warning_reels_remaining, status.countRemaining)
+                status.timeRemainingMs >= 0 ->
+                    context.getString(R.string.warning_min_remaining, status.timeRemainingMs / 60000)
                 else -> ""
             }
             text = "⚠️ $remaining"
@@ -190,14 +184,16 @@ class OverlayManager(private val context: Context) {
 
     private fun buildBlockMessage(status: QuotaStatus): String {
         return when {
-            status.countExceeded -> "Tu as regardé tous tes Reels du jour (${status.countLimit} maximum).\nReviens demain ! 💪"
-            status.timeExceeded -> "Tu as utilisé tout ton temps de Reels aujourd'hui (${status.timeLimitMin} min).\nReviens demain ! 💪"
-            status.scheduledBlocked -> "Les Reels sont bloqués pendant cette plage horaire.\n${status.scheduleMessage}"
-            status.focusModeActive -> "Mode Focus actif jusqu'à ${status.focusEndTime}.\nTu peux le faire ! 🎯"
-            else -> "Accès aux Reels bloqué."
+            status.countExceeded ->
+                context.getString(R.string.overlay_count_exceeded, status.countLimit)
+            status.timeExceeded ->
+                context.getString(R.string.overlay_time_exceeded, status.timeLimitMin)
+            status.scheduledBlocked ->
+                context.getString(R.string.overlay_schedule_blocked, status.scheduleMessage)
+            status.focusModeActive ->
+                context.getString(R.string.overlay_focus_active, status.focusEndTime)
+            else ->
+                context.getString(R.string.overlay_default)
         }
     }
 }
-
-// Hack pour accéder à performGlobalAction depuis l'overlay
-// Le vrai appel se fait via le service

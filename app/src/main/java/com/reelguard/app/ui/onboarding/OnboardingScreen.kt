@@ -13,10 +13,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.reelguard.app.R
 
 data class OnboardingPage(
     val emoji: String,
@@ -35,38 +37,38 @@ fun OnboardingScreen(onComplete: () -> Unit) {
     val pages = listOf(
         OnboardingPage(
             emoji = "🛑",
-            title = "Bienvenue sur ReelGuard",
+            title = stringResource(R.string.onboarding_welcome_title),
             steps = listOf(
-                "ReelGuard bloque les Reels sur Instagram, YouTube Shorts, TikTok, Facebook, Snapchat et plus.",
-                "Définissez un quota journalier (nombre ou durée) et l'app bloque automatiquement quand il est atteint.",
-                "Toutes vos données restent sur votre téléphone — aucun serveur, aucun compte requis."
+                stringResource(R.string.onboarding_welcome_step1),
+                stringResource(R.string.onboarding_welcome_step2),
+                stringResource(R.string.onboarding_welcome_step3)
             )
         ),
         OnboardingPage(
             emoji = "♿",
-            title = "Autorisation 1 / 2 — Service d'Accessibilité",
+            title = stringResource(R.string.onboarding_accessibility_title),
             steps = listOf(
-                "Appuyez sur le bouton ci-dessous pour ouvrir les paramètres d'accessibilité.",
-                "Cherchez la section « Applications téléchargées » ou « Services installés ».",
-                "Appuyez sur « ReelGuard ».",
-                "Activez le bouton en haut de l'écran et confirmez en appuyant sur « Autoriser »."
+                stringResource(R.string.onboarding_accessibility_step1),
+                stringResource(R.string.onboarding_accessibility_step2),
+                stringResource(R.string.onboarding_accessibility_step3),
+                stringResource(R.string.onboarding_accessibility_step4)
             ),
-            note = "⚠️ Sur Samsung, le chemin peut être : Paramètres → Accessibilité → Applications installées → ReelGuard. Sur Pixel : Paramètres → Accessibilité → ReelGuard.",
-            actionLabel = "Ouvrir les paramètres d'accessibilité",
+            note = stringResource(R.string.onboarding_accessibility_note),
+            actionLabel = stringResource(R.string.onboarding_accessibility_button),
             action = { ctx ->
                 ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             }
         ),
         OnboardingPage(
             emoji = "🪟",
-            title = "Autorisation 2 / 2 — Affichage par-dessus les apps",
+            title = stringResource(R.string.onboarding_overlay_title),
             steps = listOf(
-                "Appuyez sur le bouton ci-dessous.",
-                "Trouvez « ReelGuard » dans la liste et appuyez dessus.",
-                "Activez « Autoriser l'affichage par-dessus d'autres applis »."
+                stringResource(R.string.onboarding_overlay_step1),
+                stringResource(R.string.onboarding_overlay_step2),
+                stringResource(R.string.onboarding_overlay_step3)
             ),
-            note = "⚠️ Sur certains appareils, cette option s'appelle « Apparaître au premier plan » ou « Dessiner par-dessus d'autres applications ».",
-            actionLabel = "Ouvrir les paramètres d'affichage",
+            note = stringResource(R.string.onboarding_overlay_note),
+            actionLabel = stringResource(R.string.onboarding_overlay_button),
             action = { ctx ->
                 ctx.startActivity(
                     Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
@@ -77,24 +79,24 @@ fun OnboardingScreen(onComplete: () -> Unit) {
         ),
         OnboardingPage(
             emoji = "⚙️",
-            title = "Configurez votre quota",
+            title = stringResource(R.string.onboarding_config_title),
             steps = listOf(
-                "Ouvrez les Paramètres (icône ⚙️ en haut à droite du tableau de bord).",
-                "Activez « Quota par durée » et réglez-le sur 15 minutes — c'est un bon point de départ.",
-                "Ou activez « Quota par nombre » si vous préférez limiter le nombre de Reels.",
-                "Appuyez sur « Sauvegarder »."
+                stringResource(R.string.onboarding_config_step1),
+                stringResource(R.string.onboarding_config_step2),
+                stringResource(R.string.onboarding_config_step3),
+                stringResource(R.string.onboarding_config_step4)
             ),
-            note = "Vous recevrez un avertissement à 80% du quota atteint. Vous pouvez modifier ces réglages à tout moment."
+            note = stringResource(R.string.onboarding_config_note)
         ),
         OnboardingPage(
             emoji = "✅",
-            title = "C'est parti !",
+            title = stringResource(R.string.onboarding_ready_title),
             steps = listOf(
-                "ReelGuard surveille maintenant vos applications.",
-                "Le tableau de bord affiche votre consommation du jour.",
-                "Activez le Mode Focus pour bloquer totalement les Reels pendant une durée définie."
+                stringResource(R.string.onboarding_ready_step1),
+                stringResource(R.string.onboarding_ready_step2),
+                stringResource(R.string.onboarding_ready_step3)
             ),
-            note = "Si le blocage ne fonctionne pas, vérifiez que les deux autorisations sont bien accordées (bandeau rouge = permission manquante)."
+            note = stringResource(R.string.onboarding_ready_note)
         )
     )
 
@@ -202,15 +204,21 @@ fun OnboardingScreen(onComplete: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             if (currentPage > 0) {
-                TextButton(onClick = { currentPage-- }) { Text("Précédent") }
+                TextButton(onClick = { currentPage-- }) {
+                    Text(stringResource(R.string.btn_previous))
+                }
             } else {
                 Spacer(Modifier.weight(1f))
             }
 
             if (currentPage < pages.lastIndex) {
-                Button(onClick = { currentPage++ }) { Text("Suivant") }
+                Button(onClick = { currentPage++ }) {
+                    Text(stringResource(R.string.btn_next))
+                }
             } else {
-                Button(onClick = onComplete) { Text("Commencer !") }
+                Button(onClick = onComplete) {
+                    Text(stringResource(R.string.btn_get_started))
+                }
             }
         }
     }
