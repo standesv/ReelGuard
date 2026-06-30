@@ -61,11 +61,15 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.snapchat.android" to listOf("chat", "conversation")
         )
 
-        private val REEL_VIEW_IDS = listOf(
-            "clips_viewer_container", "reel_viewer", "clips_tab",
+        // IDs présents uniquement dans le viewer plein-écran (pas dans le feed)
+        private val FULLSCREEN_REEL_VIEW_IDS = listOf(
+            "clips_viewer_container", "reel_viewer",
             "reel_player_page", "shorts_container", "shorts_video_cell",
             "reels_viewer", "fb_reels", "spotlight_video"
         )
+
+        // IDs plus larges utilisés comme détection d'entrée (peut matcher le feed)
+        private val REEL_VIEW_IDS = FULLSCREEN_REEL_VIEW_IDS + listOf("clips_tab")
     }
 
     private val backReceiver = object : BroadcastReceiver() {
@@ -138,7 +142,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         if (inReels && !isInReelsSection) {
             // Entrée dans la section Reels
             isInReelsSection = true
-            currentReelStartTime = System.currentTimeMillis()
+            // Démarre le chrono seulement si on est bien dans le viewer plein-écran
+            currentReelStartTime = if (isFullScreenReelsView(pkg)) System.currentTimeMillis() else 0L
             sessionTimeAccum = 0L
             // Compter le premier reel
             countOneReel(pkg)
@@ -162,11 +167,17 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         if (now - lastScrollTime < SCROLL_DEBOUNCE_MS) return
         lastScrollTime = now
 
-        // Enregistrer le temps passé sur le reel précédent
-        val reelDuration = now - currentReelStartTime
-        sessionTimeAccum += reelDuration
+        // Le temps n'est comptabilisé QUE dans le viewer plein-écran (pas dans le feed)
+        val inFullScreen = isFullScreenReelsView(pkg)
+        val reelDuration = if (inFullScreen && currentReelStartTime > 0L) {
+            now - currentReelStartTime
+        } else 0L
+
+        if (reelDuration > 0L) sessionTimeAccum += reelDuration
         quotaManager.recordReelSession(pkg, reelDuration)
-        currentReelStartTime = now  // Démarrer le nouveau reel
+
+        // (Re)démarrer le chrono seulement si on est en plein-écran
+        currentReelStartTime = if (inFullScreen) now else 0L
 
         checkAndBlock(pkg)
     }
@@ -226,6 +237,17 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         // Par view IDs dans l'arbre de vues (fallback)
         val root = rootInActiveWindow ?: return false
         return nodeContainsViewIds(root, REEL_VIEW_IDS)
+    }
+
+    /**
+     * Vérifie que l'on est dans le viewer plein-écran (Reels tab, Shorts, etc.)
+     * et NON dans le feed où des reels peuvent apparaître en ligne.
+     * TikTok est toujours plein-écran par nature.
+     */
+    private fun isFullScreenReelsView(pkg: String): Boolean {
+        if (pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")) return true
+        val root = rootInActiveWindow ?: return false
+        return nodeContainsViewIds(root, FULLSCREEN_REEL_VIEW_IDS)
     }
 
     private fun isMessagingContext(event: AccessibilityEvent, pkg: String): Boolean {
