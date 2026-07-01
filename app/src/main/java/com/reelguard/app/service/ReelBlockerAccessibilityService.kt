@@ -28,10 +28,15 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     private var isInReelsSection = false
     private var currentReelStartTime = 0L   // début du reel EN COURS
     private var sessionTimeAccum = 0L       // temps cumulé dans la session
+    private var reelsEntryTime = 0L         // heure d'entrée dans la section Reels
 
-    // Anti-doublon pour les scrolls
+    // Anti-doublon pour les scrolls/content changes
     private var lastScrollTime = 0L
     private val SCROLL_DEBOUNCE_MS = 1500L  // 1,5s entre deux comptes
+
+    // Après une entrée, on protège isInReelsSection pendant ce délai contre
+    // les TYPE_WINDOW_STATE_CHANGED parasites (ex: YouTube après clic Shorts)
+    private val REELS_ENTRY_PROTECTION_MS = 3000L
 
     companion object {
         val TARGET_PACKAGES = setOf(
@@ -97,7 +102,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         val info = AccessibilityServiceInfo().apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
                     AccessibilityEvent.TYPE_VIEW_SCROLLED or
-                    AccessibilityEvent.TYPE_VIEW_CLICKED
+                    AccessibilityEvent.TYPE_VIEW_CLICKED or
+                    AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
             packageNames = TARGET_PACKAGES.toTypedArray()
@@ -126,9 +132,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         if (!quotaManager.isBlockingEnabledForApp(pkg)) return
 
         when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> handleWindowChange(event, pkg)
-            AccessibilityEvent.TYPE_VIEW_SCROLLED        -> handleScroll(event, pkg)
-            AccessibilityEvent.TYPE_VIEW_CLICKED         -> handleClick(event, pkg)
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED  -> handleWindowChange(event, pkg)
+            AccessibilityEvent.TYPE_VIEW_SCROLLED         -> handleScroll(event, pkg)
+            AccessibilityEvent.TYPE_VIEW_CLICKED          -> handleClick(event, pkg)
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> handleContentChange(pkg)
         }
     }
 
@@ -182,16 +189,15 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         }
 
         if (inReels && !isInReelsSection) {
-            // Entrée dans la section Reels
-            isInReelsSection = true
-            currentReelStartTime = System.currentTimeMillis()
-            sessionTimeAccum = 0L
-            countOneReel(pkg)
+            enterReelsSection(pkg)
         } else if (!inReels && isInReelsSection) {
-            // Sortie de la section Reels
-            flushCurrentReel()
-            isInReelsSection = false
-            overlayManager.hideOverlay()
+            // Sortie — mais pas si on vient juste d'entrer via un clic (race condition YouTube)
+            val protectionElapsed = System.currentTimeMillis() - reelsEntryTime
+            if (protectionElapsed > REELS_ENTRY_PROTECTION_MS) {
+                flushCurrentReel()
+                isInReelsSection = false
+                overlayManager.hideOverlay()
+            }
         }
 
         if (isInReelsSection) checkAndBlock(pkg)
@@ -217,6 +223,24 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         lastScrollTime = now
 
         // Durée du reel regardé = temps depuis le dernier scroll (ou l'entrée)
+        val reelDuration = if (currentReelStartTime > 0L) now - currentReelStartTime else 0L
+        if (reelDuration > 0L) sessionTimeAccum += reelDuration
+        quotaManager.recordReelSession(pkg, reelDuration)
+        currentReelStartTime = now
+
+        checkAndBlock(pkg)
+    }
+
+    // ── Changement de contenu = nouveau reel (YouTube Shorts) ───────────────
+    // YouTube Shorts ne génère pas de TYPE_VIEW_SCROLLED lors des swipes.
+    // On utilise TYPE_WINDOW_CONTENT_CHANGED comme signal de "nouvelle vidéo chargée".
+
+    private fun handleContentChange(pkg: String) {
+        if (!isInReelsSection) return
+        val now = System.currentTimeMillis()
+        if (now - lastScrollTime < SCROLL_DEBOUNCE_MS) return
+        lastScrollTime = now
+
         val reelDuration = if (currentReelStartTime > 0L) now - currentReelStartTime else 0L
         if (reelDuration > 0L) sessionTimeAccum += reelDuration
         quotaManager.recordReelSession(pkg, reelDuration)
@@ -275,7 +299,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     private fun enterReelsSection(pkg: String) {
         isInReelsSection = true
-        currentReelStartTime = System.currentTimeMillis()
+        reelsEntryTime = System.currentTimeMillis()
+        currentReelStartTime = reelsEntryTime
         sessionTimeAccum = 0L
         countOneReel(pkg)
         if (quotaManager.isFocusModeActive()) checkAndBlock(pkg)
