@@ -207,11 +207,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         // WINDOW_CONTENT_CHANGED : uniquement pour la détection d'entrée (bloc ci-dessus)
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
 
-        // YouTube/Facebook : flush géré via handleWindowChange
-        if (pkg in setOf("com.google.android.youtube", "com.facebook.katana")) return
-
         if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) return
 
+        // softFlushTime() débounce à 3s : pas de double-comptage même si handleWindowChange
+        // appelle déjà softFlushTime() pour YouTube/Facebook.
         if (softFlushTime()) checkAndBlock(pkg)
     }
 
@@ -266,9 +265,11 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 // eventText retiré : la shelf "Shorts" sur l'accueil contient "short" dans ses titres
                 className.contains("short") || contentDesc.contains("short")
             "com.facebook.katana" ->
-                // className "video" retiré : trop large (tous les posts vidéo du feed)
-                // eventText/contentDesc "reel" retirés : les captions de posts peuvent contenir "reel"
-                className.contains("reel")
+                // TYPE_WINDOW_STATE_CHANGED se déclenche sur les changements d'Activity/Fragment,
+                // PAS sur les mises à jour de contenu du feed. eventText contient le titre
+                // de la section (ex: "Reels"), sans risque de faux-positif depuis le feed.
+                // className obfusqué par Facebook → peu fiable, gardé en bonus.
+                className.contains("reel") || eventText.contains("reel") || contentDesc.contains("reel")
             "com.snapchat.android" ->
                 className.contains("spotlight") || eventText.contains("spotlight")
             "com.zhiliaoapp.musically", "com.ss.android.ugc.trill" -> true
@@ -338,9 +339,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         val runnable = object : Runnable {
             override fun run() {
                 if (!isInReelsSection) return
-                val activePkg = rootInActiveWindow?.packageName?.toString() ?: ""
-                if (activePkg.isEmpty() || activePkg !in TARGET_PACKAGES) {
-                    // L'utilisateur a quitté l'app (bouton home, autre app, verrouillage)
+                val activePkg = rootInActiveWindow?.packageName?.toString()
+                // Ne sortir QUE sur un package étranger confirmé.
+                // null = arbre en cours de chargement (transition vidéo YouTube, etc.) → rester en session.
+                if (activePkg != null && activePkg !in TARGET_PACKAGES) {
                     exitReelsSection()
                     return
                 }
