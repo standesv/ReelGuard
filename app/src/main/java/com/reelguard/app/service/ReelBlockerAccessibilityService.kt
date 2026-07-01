@@ -347,7 +347,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                     return
                 }
                 softFlushTime()
-                checkAndBlock(activePkg)
+                checkAndBlock(activePkg ?: currentPackage)
                 handler.postDelayed(this, SESSION_TIMER_MS)
             }
         }
