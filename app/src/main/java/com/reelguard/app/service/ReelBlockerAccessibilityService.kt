@@ -32,6 +32,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     private var lastFlushTime = 0L
     private val FLUSH_DEBOUNCE_MS = 3000L
 
+    // Timer de session : flush toutes les 5s même sans swipe, détecte la sortie via home button
+    private var sessionTimerRunnable: Runnable? = null
+    private val SESSION_TIMER_MS = 5000L
+
     private var youtubeExitPending = false
 
     companion object {
@@ -182,11 +186,11 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
         if (isInReelsSection) {
             // YouTube/Facebook : flush du temps à chaque chargement de vidéo
-            // (Instagram/TikTok/Snapchat : géré via TYPE_VIEW_SCROLLED)
+            // (Instagram/TikTok/Snapchat : géré via TYPE_VIEW_SCROLLED + session timer)
             if (pkg in setOf("com.google.android.youtube", "com.facebook.katana")) {
                 softFlushTime()
             }
-            checkAndBlock(pkg)
+            checkAndBlock(pkg)  // toujours vérifier le quota au chargement d'une vidéo
         }
     }
 
@@ -208,8 +212,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
         if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) return
 
-        softFlushTime()
-        checkAndBlock(pkg)
+        if (softFlushTime()) checkAndBlock(pkg)
     }
 
     // ────────────────────────────────────────────────────────────────────────────
@@ -303,28 +306,62 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         currentReelStartTime = System.currentTimeMillis()
         lastFlushTime = 0L
         youtubeExitPending = false
+        startSessionTimer()
         if (quotaManager.isFocusModeActive()) checkAndBlock(pkg)
     }
 
     /**
      * Flush périodique du temps accumulé dans la section Reels.
-     * Appelé à chaque swipe (Instagram/TikTok) ou chargement de vidéo (YouTube/Facebook).
      * Debounce de 3s pour limiter les écritures dans SharedPreferences.
+     * Retourne true si un flush a eu lieu (pour conditionner checkAndBlock).
      */
-    private fun softFlushTime() {
+    private fun softFlushTime(): Boolean {
         val now = System.currentTimeMillis()
-        if (now - lastFlushTime < FLUSH_DEBOUNCE_MS) return
+        if (now - lastFlushTime < FLUSH_DEBOUNCE_MS) return false
         lastFlushTime = now
         val elapsed = if (currentReelStartTime > 0L) now - currentReelStartTime else 0L
         if (elapsed > 0L) {
             quotaManager.recordReelTime(elapsed)
             currentReelStartTime = now  // repart de zéro pour éviter le double-comptage
         }
+        return true
+    }
+
+    /**
+     * Timer qui tourne toutes les 5s pendant la session Reels.
+     * Résout deux problèmes :
+     * 1. Regarder sans swiper → flush du temps quand même
+     * 2. Bouton home → rootInActiveWindow change → exitReelsSection() déclenché
+     */
+    private fun startSessionTimer() {
+        stopSessionTimer()
+        val runnable = object : Runnable {
+            override fun run() {
+                if (!isInReelsSection) return
+                val activePkg = rootInActiveWindow?.packageName?.toString() ?: ""
+                if (activePkg.isEmpty() || activePkg !in TARGET_PACKAGES) {
+                    // L'utilisateur a quitté l'app (bouton home, autre app, verrouillage)
+                    exitReelsSection()
+                    return
+                }
+                softFlushTime()
+                checkAndBlock(activePkg)
+                handler.postDelayed(this, SESSION_TIMER_MS)
+            }
+        }
+        sessionTimerRunnable = runnable
+        handler.postDelayed(runnable, SESSION_TIMER_MS)
+    }
+
+    private fun stopSessionTimer() {
+        sessionTimerRunnable?.let { handler.removeCallbacks(it) }
+        sessionTimerRunnable = null
     }
 
     private fun exitReelsSection() {
         flushCurrentReel()
         isInReelsSection = false
+        stopSessionTimer()
         overlayManager.hideOverlay()
     }
 
@@ -390,12 +427,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         autoExitRunnable = null
     }
 
-    override fun onInterrupt() { exitReelsSection(); cancelAutoExit() }
+    override fun onInterrupt() { exitReelsSection(); cancelAutoExit(); stopSessionTimer() }
 
     override fun onDestroy() {
         super.onDestroy()
         exitReelsSection()
         cancelAutoExit()
+        stopSessionTimer()
         try { unregisterReceiver(backReceiver) } catch (_: Exception) {}
     }
 }
