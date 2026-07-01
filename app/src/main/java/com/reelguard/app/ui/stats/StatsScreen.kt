@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,7 +41,6 @@ class StatsViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val streakDays get() = qm.getStreakDays()
-    val todayCount get() = qm.getCountToday()
     val todayTimeMs get() = qm.getTimeUsedMs()
 }
 
@@ -73,7 +71,6 @@ fun StatsScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
         ) {
             // Résumé du jour
             SummaryRow(
-                todayCount = vm.todayCount,
                 todayTimeMs = vm.todayTimeMs,
                 streakDays = vm.streakDays
             )
@@ -92,17 +89,11 @@ fun StatsScreen(onBack: () -> Unit, vm: StatsViewModel = viewModel()) {
 }
 
 @Composable
-fun SummaryRow(todayCount: Int, todayTimeMs: Long, streakDays: Int) {
+fun SummaryRow(todayTimeMs: Long, streakDays: Int) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SummaryCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.Tag,
-            value = "$todayCount",
-            label = "Reels\naujourd'hui"
-        )
         SummaryCard(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.Schedule,
@@ -201,7 +192,6 @@ fun RecentDaysTable(days: List<DailyStats>) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text("Date", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(2f))
-                Text("Reels", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
                 Text("Durée", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1.5f))
                 Text("Quota", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             }
@@ -225,10 +215,9 @@ fun RecentDaysTable(days: List<DailyStats>) {
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.weight(2f)
                     )
-                    Text("${day.totalReelCount}", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                     Text("${day.totalTimeMs / 60000} min", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1.5f))
                     Text(
-                        if (day.quotaMetCount || day.quotaMetTime) "✅" else "—",
+                        if (day.quotaMetTime) "✅" else "—",
                         modifier = Modifier.weight(1f)
                     )
                 }
