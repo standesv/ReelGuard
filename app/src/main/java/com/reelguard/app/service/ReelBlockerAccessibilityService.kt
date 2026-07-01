@@ -194,9 +194,14 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             // Pour les autres apps : on reste en mode Reels (pas de faux-positif de sortie)
         }
 
-        // Déjà en mode Reels → tout changement de fenêtre = potentiellement nouvelle vidéo
+        // Déjà en mode Reels → nouvelle vidéo chargée
         if (isInReelsSection) {
-            countNewReel(pkg)
+            // YouTube et Facebook ne génèrent pas de TYPE_VIEW_SCROLLED fiable lors des swipes.
+            // On compte donc ici, via TYPE_WINDOW_STATE_CHANGED (chargement de chaque vidéo).
+            // Pour Instagram/TikTok/Snapchat, le comptage se fait via TYPE_VIEW_SCROLLED.
+            if (pkg in setOf("com.google.android.youtube", "com.facebook.katana")) {
+                countNewReel(pkg)
+            }
             checkAndBlock(pkg)
         }
     }
@@ -212,6 +217,15 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             if (!tryEnterViaScroll(event, pkg)) return
             return // Premier scroll = entrée, déjà compté dans enterReelsSection
         }
+
+        // TYPE_WINDOW_CONTENT_CHANGED : utilisé uniquement pour la détection d'entrée
+        // (bloc ci-dessus). Ne jamais l'utiliser pour compter — il se déclenche en continu
+        // pendant la lecture (progress bar, like count, etc.) → surcounting garanti.
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
+
+        // YouTube et Facebook sont comptés via TYPE_WINDOW_STATE_CHANGED dans handleWindowChange.
+        // Éviter le double comptage ici.
+        if (pkg in setOf("com.google.android.youtube", "com.facebook.katana")) return
 
         if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) return
 
