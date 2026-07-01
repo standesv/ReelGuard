@@ -78,10 +78,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         private val YOUTUBE_NON_SHORTS_TABS = listOf("home", "accueil", "explore",
             "subscriptions", "abonnements", "library", "bibliothèque", "you")
 
-        // IDs de vues : fallback si les autres méthodes échouent
+        // IDs de vues : fallback si les autres méthodes échouent.
+        // NE PAS inclure shorts_shelf_cell / shorts_video_cell : ce sont les cartes
+        // de la shelf "Shorts" sur l'accueil YouTube (faux-positif garanti).
         private val REEL_VIEW_IDS = listOf(
             "clips_viewer_container", "reel_viewer", "clips_tab", "reel_player_page",
-            "shorts_container", "shorts_video_cell", "shorts_player", "shorts_shelf_cell",
+            "shorts_container", "shorts_player",
             "reels_viewer", "fb_reels", "reels_player",
             "spotlight_video", "spotlight_container",
             "video_pin", "story_pin"
@@ -243,18 +245,19 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         }
 
         val scrollClass = event.className?.toString()?.lowercase() ?: ""
-        val eventText   = (event.text?.joinToString(" ") ?: "").lowercase()
         val sourceId    = event.source?.viewIdResourceName?.lowercase() ?: ""
 
         val hit = when (pkg) {
             "com.google.android.youtube" ->
-                scrollClass.contains("short") || eventText.contains("short") || sourceId.contains("short")
+                // eventText retiré : la shelf Shorts de l'accueil génère des textes contenant "short"
+                scrollClass.contains("short") || sourceId.contains("short")
             "com.instagram.android" ->
                 scrollClass.contains("reel") || scrollClass.contains("clip") ||
                 sourceId.contains("reel") || sourceId.contains("clip")
             "com.facebook.katana" ->
-                scrollClass.contains("reel") || scrollClass.contains("video") ||
-                sourceId.contains("reel") || eventText.contains("reel")
+                // scrollClass "video" retiré : feed principal = vidéos partout
+                // eventText "reel" retiré : les captions peuvent contenir "reel"
+                scrollClass.contains("reel") || sourceId.contains("reel")
             "com.snapchat.android" ->
                 scrollClass.contains("spotlight") || sourceId.contains("spotlight")
             else -> false
@@ -280,10 +283,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.instagram.android" ->
                 className.contains("reel") || className.contains("clip")
             "com.google.android.youtube" ->
-                className.contains("short") || eventText.contains("short") || contentDesc.contains("short")
+                // eventText retiré : la shelf "Shorts" sur l'accueil contient "short" dans ses titres
+                className.contains("short") || contentDesc.contains("short")
             "com.facebook.katana" ->
-                className.contains("reel") || className.contains("video") ||
-                eventText.contains("reel") || contentDesc.contains("reel")
+                // className "video" retiré : trop large (tous les posts vidéo du feed)
+                // eventText/contentDesc "reel" retirés : les captions de posts peuvent contenir "reel"
+                className.contains("reel")
             "com.snapchat.android" ->
                 className.contains("spotlight") || eventText.contains("spotlight")
             "com.zhiliaoapp.musically", "com.ss.android.ugc.trill" -> true
