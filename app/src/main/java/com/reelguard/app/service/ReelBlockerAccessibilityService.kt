@@ -175,10 +175,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     private fun handleScroll(event: AccessibilityEvent, pkg: String) {
         // Détection tardive : si le TYPE_WINDOW_STATE_CHANGED n'a pas déclenché
-        // l'entrée (ex: YouTube obfusque ses noms de classes), on tente ici —
-        // au moment du scroll, l'arbre de vues est forcément chargé.
+        // l'entrée (ex: YouTube obfusque ses noms de classes), on tente ici.
+        // Au moment du scroll, l'arbre de vues ET les métadonnées de l'événement
+        // sont forcément disponibles.
         if (!isInReelsSection) {
-            if (!tryEnterReelsSectionViaScroll(pkg)) return
+            if (!tryEnterReelsSectionViaScroll(event, pkg)) return
+            // Premier scroll = entrée : déjà compté dans tryEnter, on s'arrête ici
+            return
         }
 
         if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) return
@@ -197,30 +200,59 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Tente de détecter l'entrée dans la section Reels via l'arbre de vues au moment
-     * d'un scroll. Retourne true si on est maintenant en mode Reels.
+     * Détection tardive de la section Reels au moment d'un scroll.
+     * Utilise 3 niveaux : classe du scroll, texte de l'événement, puis IDs de vues.
      */
-    private fun tryEnterReelsSectionViaScroll(pkg: String): Boolean {
-        // TikTok est toujours en mode Reels
-        val inReels = if (pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")) {
-            true
-        } else {
-            val root = rootInActiveWindow ?: return false
-            nodeContainsViewIds(root, REEL_VIEW_IDS)
+    private fun tryEnterReelsSectionViaScroll(event: AccessibilityEvent, pkg: String): Boolean {
+        if (pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")) {
+            enterReelsSection(pkg)
+            return true
         }
-        if (!inReels) return false
 
-        // Entrée confirmée
+        // Niveau 1 : classe de la vue scrollée (différente de la classe de la fenêtre)
+        val scrollClass = event.className?.toString()?.lowercase() ?: ""
+        // Niveau 2 : texte / description de l'événement (YouTube peut inclure "Shorts")
+        val eventText = (event.text?.joinToString(" ") ?: "").lowercase()
+        val contentDesc = event.contentDescription?.toString()?.lowercase() ?: ""
+        // Niveau 3 : ID de la vue source du scroll
+        val sourceId = event.source?.viewIdResourceName?.lowercase() ?: ""
+
+        val signalFound = when (pkg) {
+            "com.google.android.youtube" ->
+                scrollClass.contains("short") ||
+                eventText.contains("short") ||
+                contentDesc.contains("short") ||
+                sourceId.contains("short")
+            "com.instagram.android" ->
+                scrollClass.contains("reel") || scrollClass.contains("clip") ||
+                sourceId.contains("reel") || sourceId.contains("clip")
+            "com.facebook.katana" ->
+                scrollClass.contains("reel") || sourceId.contains("reel")
+            "com.snapchat.android" ->
+                scrollClass.contains("spotlight") || sourceId.contains("spotlight")
+            else -> false
+        }
+
+        if (signalFound) {
+            enterReelsSection(pkg)
+            return true
+        }
+
+        // Niveau 4 : parcours de l'arbre de vues (plus lent, en dernier recours)
+        val root = rootInActiveWindow ?: return false
+        if (nodeContainsViewIds(root, REEL_VIEW_IDS)) {
+            enterReelsSection(pkg)
+            return true
+        }
+        return false
+    }
+
+    private fun enterReelsSection(pkg: String) {
         isInReelsSection = true
         currentReelStartTime = System.currentTimeMillis()
         sessionTimeAccum = 0L
         countOneReel(pkg)
-
-        // Vérifier le mode Focus dès l'entrée
-        if (quotaManager.isFocusModeActive()) {
-            checkAndBlock(pkg)
-        }
-        return true
+        if (quotaManager.isFocusModeActive()) checkAndBlock(pkg)
     }
 
     // ── Vérification et blocage ──────────────────────────────────────────────
@@ -257,29 +289,34 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ── Détection du contexte ────────────────────────────────────────────────
 
     /**
-     * Détection de la section Reels.
-     * Priorité 1 : nom de classe (fiable, pas de faux positifs dans le feed).
-     * Priorité 2 : view IDs dans l'arbre (fallback si le nom de classe ne matche pas).
+     * Détection via TYPE_WINDOW_STATE_CHANGED.
+     * Niveau 1 : nom de classe de la fenêtre.
+     * Niveau 2 : texte/contentDescription de l'événement.
+     * Niveau 3 : view IDs dans l'arbre de vues (fallback).
      */
     private fun isReelsContext(event: AccessibilityEvent, pkg: String): Boolean {
         val className = event.className?.toString()?.lowercase() ?: ""
+        val eventText = (event.text?.joinToString(" ") ?: "").lowercase()
+        val contentDesc = event.contentDescription?.toString()?.lowercase() ?: ""
 
-        val classMatch = when (pkg) {
+        val signalFound = when (pkg) {
             "com.instagram.android" ->
                 className.contains("reel") || className.contains("clip")
             "com.google.android.youtube" ->
-                className.contains("short")
+                className.contains("short") ||
+                eventText.contains("short") ||
+                contentDesc.contains("short")
             "com.facebook.katana" ->
-                className.contains("reel")
+                className.contains("reel") || eventText.contains("reel")
             "com.snapchat.android" ->
-                className.contains("spotlight")
+                className.contains("spotlight") || eventText.contains("spotlight")
             "com.zhiliaoapp.musically", "com.ss.android.ugc.trill" ->
                 true
             else -> false
         }
-        if (classMatch) return true
+        if (signalFound) return true
 
-        // Fallback : view IDs (couvre les versions d'apps qui obfusquent les noms de classes)
+        // Fallback : view IDs dans l'arbre (apps avec classes obfusquées)
         val root = rootInActiveWindow ?: return false
         return nodeContainsViewIds(root, REEL_VIEW_IDS)
     }
