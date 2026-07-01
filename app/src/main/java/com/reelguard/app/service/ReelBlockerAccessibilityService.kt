@@ -96,7 +96,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
         val info = AccessibilityServiceInfo().apply {
             eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                    AccessibilityEvent.TYPE_VIEW_SCROLLED
+                    AccessibilityEvent.TYPE_VIEW_SCROLLED or
+                    AccessibilityEvent.TYPE_VIEW_CLICKED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
             packageNames = TARGET_PACKAGES.toTypedArray()
@@ -126,7 +127,32 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> handleWindowChange(event, pkg)
-            AccessibilityEvent.TYPE_VIEW_SCROLLED -> handleScroll(event, pkg)
+            AccessibilityEvent.TYPE_VIEW_SCROLLED        -> handleScroll(event, pkg)
+            AccessibilityEvent.TYPE_VIEW_CLICKED         -> handleClick(event, pkg)
+        }
+    }
+
+    // ── Clic sur un onglet de navigation ────────────────────────────────────
+    // Le bouton "Shorts" de YouTube (et équivalents) a toujours son label
+    // comme content description — fiable même si le code est obfusqué.
+
+    private fun handleClick(event: AccessibilityEvent, pkg: String) {
+        val text = (event.text?.joinToString(" ") ?: "").lowercase()
+        val desc = event.contentDescription?.toString()?.lowercase() ?: ""
+        val combined = "$text $desc"
+
+        val clickedReelsTab = when (pkg) {
+            "com.google.android.youtube" ->
+                combined.contains("shorts")
+            "com.snapchat.android" ->
+                combined.contains("spotlight")
+            "com.facebook.katana" ->
+                combined.contains("reels")
+            else -> false
+        }
+
+        if (clickedReelsTab && !isInReelsSection) {
+            enterReelsSection(pkg)
         }
     }
 
