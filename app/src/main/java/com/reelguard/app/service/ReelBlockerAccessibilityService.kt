@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
 import com.reelguard.app.manager.OverlayManager
 import com.reelguard.app.manager.QuotaManager
@@ -60,6 +61,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.snapchat.android" to listOf("chat", "conversation")
         )
 
+        // IDs présents dans la section Reels (feed inclus pour certains — utilisé uniquement
+        // comme fallback quand le nom de classe ne matche pas)
+        private val REEL_VIEW_IDS = listOf(
+            "clips_viewer_container", "reel_viewer", "clips_tab",
+            "reel_player_page", "shorts_container", "shorts_video_cell",
+            "reels_viewer", "fb_reels", "spotlight_video"
+        )
     }
 
     private val backReceiver = object : BroadcastReceiver() {
@@ -120,6 +128,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             currentPackage = pkg
         }
 
+        // Messagerie : exception, on sort du mode Reels
         if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) {
             flushCurrentReel()
             isInReelsSection = false
@@ -127,14 +136,19 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             return
         }
 
+        // Mode Focus : bloque dès que l'utilisateur navigue vers la section Reels
+        // (ou dès l'ouverture de TikTok qui est toujours "Reels")
         val inReels = isReelsContext(event, pkg)
+        if (inReels && quotaManager.isFocusModeActive()) {
+            checkAndBlock(pkg)
+            return
+        }
 
         if (inReels && !isInReelsSection) {
             // Entrée dans la section Reels
             isInReelsSection = true
             currentReelStartTime = System.currentTimeMillis()
             sessionTimeAccum = 0L
-            // Compter le premier reel
             countOneReel(pkg)
         } else if (!inReels && isInReelsSection) {
             // Sortie de la section Reels
@@ -199,13 +213,14 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ── Détection du contexte ────────────────────────────────────────────────
 
     /**
-     * Détection basée uniquement sur le nom de classe de la fenêtre.
-     * Le fallback par view IDs a été retiré : Instagram et Facebook exposent des IDs
-     * de reels même dans le feed normal (reels inline), ce qui causait de faux positifs.
+     * Détection de la section Reels.
+     * Priorité 1 : nom de classe (fiable, pas de faux positifs dans le feed).
+     * Priorité 2 : view IDs dans l'arbre (fallback si le nom de classe ne matche pas).
      */
     private fun isReelsContext(event: AccessibilityEvent, pkg: String): Boolean {
         val className = event.className?.toString()?.lowercase() ?: ""
-        return when (pkg) {
+
+        val classMatch = when (pkg) {
             "com.instagram.android" ->
                 className.contains("reel") || className.contains("clip")
             "com.google.android.youtube" ->
@@ -215,9 +230,24 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.snapchat.android" ->
                 className.contains("spotlight")
             "com.zhiliaoapp.musically", "com.ss.android.ugc.trill" ->
-                true  // TikTok = toujours des reels
+                true
             else -> false
         }
+        if (classMatch) return true
+
+        // Fallback : view IDs (couvre les versions d'apps qui obfusquent les noms de classes)
+        val root = rootInActiveWindow ?: return false
+        return nodeContainsViewIds(root, REEL_VIEW_IDS)
+    }
+
+    private fun nodeContainsViewIds(node: AccessibilityNodeInfo?, ids: List<String>, depth: Int = 0): Boolean {
+        if (node == null || depth > 6) return false
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
+        if (ids.any { viewId.contains(it) }) return true
+        for (i in 0 until node.childCount) {
+            if (nodeContainsViewIds(node.getChild(i), ids, depth + 1)) return true
+        }
+        return false
     }
 
     private fun isMessagingContext(event: AccessibilityEvent, pkg: String): Boolean {

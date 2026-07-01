@@ -290,10 +290,10 @@ class QuotaManager private constructor(private val context: Context) {
         prefs.edit { putBoolean(KEY_APP_PREFIX + packageName, enabled) }
     }
 
-    fun isCountQuotaEnabled(): Boolean = prefs.getBoolean(KEY_COUNT_ENABLED, false)
+    fun isCountQuotaEnabled(): Boolean = prefs.getBoolean(KEY_COUNT_ENABLED, true)
     fun setCountQuotaEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_COUNT_ENABLED, enabled) }
 
-    fun getCountLimit(): Int = prefs.getInt(KEY_COUNT_LIMIT, 10)
+    fun getCountLimit(): Int = prefs.getInt(KEY_COUNT_LIMIT, 10)  // 10 reels par défaut
     fun setCountLimit(limit: Int) = prefs.edit { putInt(KEY_COUNT_LIMIT, limit) }
 
     fun getCountToday(): Int = prefs.getInt(KEY_COUNT_TODAY, 0)
