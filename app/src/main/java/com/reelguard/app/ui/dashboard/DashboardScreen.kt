@@ -257,16 +257,6 @@ fun QuotaCard(state: DashboardState) {
                 fontWeight = FontWeight.Bold
             )
 
-            // Quota en nombre
-            if (state.quota.countLimit > 0) {
-                QuotaProgressRow(
-                    label = stringResource(R.string.quota_reels_label),
-                    used = state.quota.countUsed,
-                    limit = state.quota.countLimit,
-                    unit = stringResource(R.string.quota_unit_reels)
-                )
-            }
-
             // Quota en temps
             if (state.quota.timeLimitMin > 0) {
                 val usedMin = (state.quota.timeUsedMs / 60000f).toInt()
@@ -278,7 +268,7 @@ fun QuotaCard(state: DashboardState) {
                 )
             }
 
-            if (state.quota.countLimit <= 0 && state.quota.timeLimitMin <= 0) {
+            if (state.quota.timeLimitMin <= 0) {
                 Text(
                     stringResource(R.string.quota_no_config),
                     style = MaterialTheme.typography.bodySmall,

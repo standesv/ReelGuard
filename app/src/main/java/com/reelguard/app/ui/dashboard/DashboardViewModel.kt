@@ -21,7 +21,6 @@ data class DashboardState(
     val isFocusActive: Boolean = false,
     val focusTimeRemaining: String = "",
     val streakDays: Int = 0,
-    val countUsedToday: Int = 0,
     val timeUsedTodayMin: Float = 0f,
     val appStates: Map<String, Boolean> = emptyMap()
 )
@@ -55,7 +54,6 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             isFocusActive = quotaManager.isFocusModeActive(),
             focusTimeRemaining = quotaManager.getFocusEndTimeDisplay(),
             streakDays = quotaManager.getStreakDays(),
-            countUsedToday = quotaManager.getCountToday(),
             timeUsedTodayMin = quotaManager.getTimeUsedMs() / 60000f,
             appStates = ReelBlockerAccessibilityService.TARGET_PACKAGES.associateWith {
                 quotaManager.isBlockingEnabledForApp(it)

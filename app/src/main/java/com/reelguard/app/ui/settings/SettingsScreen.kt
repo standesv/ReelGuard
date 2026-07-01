@@ -28,8 +28,6 @@ import com.reelguard.app.manager.ScheduleRule
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     val qm = QuotaManager.getInstance(application)
 
-    var countEnabled by mutableStateOf(qm.isCountQuotaEnabled())
-    var countLimit by mutableIntStateOf(qm.getCountLimit())
     var timeEnabled by mutableStateOf(qm.isTimeQuotaEnabled())
     var timeLimitMin by mutableIntStateOf(qm.getTimeLimitMin())
     var scheduleEnabled by mutableStateOf(qm.isScheduleEnabled())
@@ -39,8 +37,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     var resetHour by mutableIntStateOf(qm.prefs.getInt(QuotaManager.KEY_RESET_HOUR, 0))
 
     fun save() {
-        qm.setCountQuotaEnabled(countEnabled)
-        qm.setCountLimit(countLimit)
         qm.setTimeQuotaEnabled(timeEnabled)
         qm.setTimeLimitMin(timeLimitMin)
         qm.setScheduleEnabled(scheduleEnabled)
@@ -91,36 +87,6 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // --- Quota en nombre ---
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Tag, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.count_quota_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(stringResource(R.string.count_quota_toggle))
-                        Switch(checked = vm.countEnabled, onCheckedChange = { vm.countEnabled = it })
-                    }
-                    if (vm.countEnabled) {
-                        Text(stringResource(R.string.count_quota_max, vm.countLimit))
-                        Slider(
-                            value = vm.countLimit.toFloat(),
-                            onValueChange = { vm.countLimit = it.toInt() },
-                            valueRange = 1f..50f,
-                            steps = 48
-                        )
-                    }
-                }
-            }
-
             // --- Quota en temps ---
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(

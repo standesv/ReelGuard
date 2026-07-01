@@ -168,8 +168,6 @@ class OverlayManager(private val context: Context) {
     private fun buildWarningView(status: QuotaStatus): View {
         return TextView(context).apply {
             val remaining = when {
-                status.countRemaining >= 0 ->
-                    context.getString(R.string.warning_reels_remaining, status.countRemaining)
                 status.timeRemainingMs >= 0 ->
                     context.getString(R.string.warning_min_remaining, status.timeRemainingMs / 60000)
                 else -> ""
@@ -184,8 +182,6 @@ class OverlayManager(private val context: Context) {
 
     private fun buildBlockMessage(status: QuotaStatus): String {
         return when {
-            status.countExceeded ->
-                context.getString(R.string.overlay_count_exceeded, status.countLimit)
             status.timeExceeded ->
                 context.getString(R.string.overlay_time_exceeded, status.timeLimitMin)
             status.scheduledBlocked ->

@@ -27,14 +27,11 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     private var currentPackage: String = ""
     private var isInReelsSection = false
     private var currentReelStartTime = 0L
-    private var sessionTimeAccum = 0L
 
-    // Anti-doublon : 1,5s minimum entre deux comptes de reel
-    private var lastCountTime = 0L
-    private val COUNT_DEBOUNCE_MS = 1500L
+    // Flush périodique du temps (max toutes les 3s pour éviter trop d'écriture prefs)
+    private var lastFlushTime = 0L
+    private val FLUSH_DEBOUNCE_MS = 3000L
 
-    // Pour YouTube : on sort du mode Reels uniquement via clic sur un autre onglet
-    // (les TYPE_WINDOW_STATE_CHANGED entre Shorts ne doivent pas déclencher la sortie)
     private var youtubeExitPending = false
 
     companion object {
@@ -65,8 +62,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.snapchat.android" to listOf("chat", "conversation")
         )
 
-        // Mots-clés des onglets Reels/Shorts dans la barre de navigation de chaque app
-        // (content description ou texte du bouton — résistant à l'obfuscation du code)
+        // Mots-clés des onglets Reels/Shorts (content description du bouton — résistant à l'obfuscation)
         private val REELS_TAB_KEYWORDS = mapOf(
             "com.google.android.youtube" to listOf("shorts"),
             "com.facebook.katana"        to listOf("reels", "watch", "video", "vidéo", "reel"),
@@ -74,7 +70,6 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.instagram.android"      to listOf("reels", "reel")
         )
 
-        // Mots-clés des autres onglets YouTube (pour détecter la sortie de Shorts)
         private val YOUTUBE_NON_SHORTS_TABS = listOf("home", "accueil", "explore",
             "subscriptions", "abonnements", "library", "bibliothèque", "you")
 
@@ -142,8 +137,6 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     // ────────────────────────────────────────────────────────────────────────────
     // CLIC SUR UN ONGLET DE NAVIGATION
-    // Le label du bouton (contentDescription) est toujours lisible même si le code
-    // est obfusqué — c'est une obligation d'accessibilité Android.
     // ────────────────────────────────────────────────────────────────────────────
 
     private fun handleClick(event: AccessibilityEvent, pkg: String) {
@@ -158,11 +151,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             return
         }
 
-        // Pour YouTube : si l'utilisateur clique sur un autre onglet → sortie de Shorts
         if (pkg == "com.google.android.youtube" && isInReelsSection) {
-            if (YOUTUBE_NON_SHORTS_TABS.any { combined.contains(it) }) {
-                exitReelsSection()
-            }
+            if (YOUTUBE_NON_SHORTS_TABS.any { combined.contains(it) }) exitReelsSection()
         }
     }
 
@@ -183,26 +173,18 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         val inReels = isReelsContext(event, pkg)
 
         if (inReels && !isInReelsSection) {
-            // Entrée via changement de fenêtre (Instagram, TikTok — noms de classes fiables)
             enterReelsSection(pkg)
         } else if (!inReels && isInReelsSection) {
-            // Sortie seulement pour les apps dont la détection par classe est fiable.
-            // YouTube et Facebook génèrent des window changes parasites dans leurs sections
-            // Reels → on gère leur sortie uniquement via handleClick / onLeaveTargetApp.
             if (pkg == "com.instagram.android") {
-                exitReelsSection()
-                return
+                exitReelsSection(); return
             }
-            // Pour les autres apps : on reste en mode Reels (pas de faux-positif de sortie)
         }
 
-        // Déjà en mode Reels → nouvelle vidéo chargée
         if (isInReelsSection) {
-            // YouTube et Facebook ne génèrent pas de TYPE_VIEW_SCROLLED fiable lors des swipes.
-            // On compte donc ici, via TYPE_WINDOW_STATE_CHANGED (chargement de chaque vidéo).
-            // Pour Instagram/TikTok/Snapchat, le comptage se fait via TYPE_VIEW_SCROLLED.
+            // YouTube/Facebook : flush du temps à chaque chargement de vidéo
+            // (Instagram/TikTok/Snapchat : géré via TYPE_VIEW_SCROLLED)
             if (pkg in setOf("com.google.android.youtube", "com.facebook.katana")) {
-                countNewReel(pkg)
+                softFlushTime()
             }
             checkAndBlock(pkg)
         }
@@ -210,28 +192,23 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     // ────────────────────────────────────────────────────────────────────────────
     // SCROLL / CHANGEMENT DE CONTENU
-    // Gère à la fois TYPE_VIEW_SCROLLED et TYPE_WINDOW_CONTENT_CHANGED
     // ────────────────────────────────────────────────────────────────────────────
 
     private fun handleScrollOrContent(event: AccessibilityEvent, pkg: String) {
         if (!isInReelsSection) {
-            // Tentative d'entrée tardive (arbre de vues chargé au moment du scroll)
             if (!tryEnterViaScroll(event, pkg)) return
-            return // Premier scroll = entrée, déjà compté dans enterReelsSection
+            return
         }
 
-        // TYPE_WINDOW_CONTENT_CHANGED : utilisé uniquement pour la détection d'entrée
-        // (bloc ci-dessus). Ne jamais l'utiliser pour compter — il se déclenche en continu
-        // pendant la lecture (progress bar, like count, etc.) → surcounting garanti.
+        // WINDOW_CONTENT_CHANGED : uniquement pour la détection d'entrée (bloc ci-dessus)
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
 
-        // YouTube et Facebook sont comptés via TYPE_WINDOW_STATE_CHANGED dans handleWindowChange.
-        // Éviter le double comptage ici.
+        // YouTube/Facebook : flush géré via handleWindowChange
         if (pkg in setOf("com.google.android.youtube", "com.facebook.katana")) return
 
         if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) return
 
-        countNewReel(pkg)
+        softFlushTime()
         checkAndBlock(pkg)
     }
 
@@ -324,23 +301,25 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     private fun enterReelsSection(pkg: String) {
         isInReelsSection = true
         currentReelStartTime = System.currentTimeMillis()
-        sessionTimeAccum = 0L
+        lastFlushTime = 0L
         youtubeExitPending = false
-        quotaManager.recordReelSession(pkg, 0L) // compte le premier reel
-        lastCountTime = System.currentTimeMillis()
         if (quotaManager.isFocusModeActive()) checkAndBlock(pkg)
     }
 
-    /** Comptabilise un nouveau reel avec debounce de 1,5s */
-    private fun countNewReel(pkg: String) {
+    /**
+     * Flush périodique du temps accumulé dans la section Reels.
+     * Appelé à chaque swipe (Instagram/TikTok) ou chargement de vidéo (YouTube/Facebook).
+     * Debounce de 3s pour limiter les écritures dans SharedPreferences.
+     */
+    private fun softFlushTime() {
         val now = System.currentTimeMillis()
-        if (now - lastCountTime < COUNT_DEBOUNCE_MS) return
-        lastCountTime = now
-
-        val reelDuration = if (currentReelStartTime > 0L) now - currentReelStartTime else 0L
-        if (reelDuration > 0L) sessionTimeAccum += reelDuration
-        quotaManager.recordReelSession(pkg, reelDuration)
-        currentReelStartTime = now
+        if (now - lastFlushTime < FLUSH_DEBOUNCE_MS) return
+        lastFlushTime = now
+        val elapsed = if (currentReelStartTime > 0L) now - currentReelStartTime else 0L
+        if (elapsed > 0L) {
+            quotaManager.recordReelTime(elapsed)
+            currentReelStartTime = now  // repart de zéro pour éviter le double-comptage
+        }
     }
 
     private fun exitReelsSection() {
@@ -352,9 +331,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     private fun flushCurrentReel() {
         if (isInReelsSection && currentReelStartTime > 0) {
             val duration = System.currentTimeMillis() - currentReelStartTime
-            if (duration > 500) quotaManager.recordReelSession(currentPackage, duration)
+            if (duration > 500) quotaManager.recordReelTime(duration)
             currentReelStartTime = 0L
-            sessionTimeAccum = 0L
         }
     }
 
