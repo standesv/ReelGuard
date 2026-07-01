@@ -61,12 +61,23 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.snapchat.android" to listOf("chat", "conversation")
         )
 
-        // IDs présents dans la section Reels (feed inclus pour certains — utilisé uniquement
-        // comme fallback quand le nom de classe ne matche pas)
+        // IDs de vues spécifiques aux sections Reels/Shorts/Spotlight de chaque app.
+        // Utilisés comme fallback quand le nom de classe ne matche pas (ex: YouTube obfusqué).
+        // Ces IDs sont vérifiés au moment du SCROLL (arbre de vues forcément chargé).
         private val REEL_VIEW_IDS = listOf(
-            "clips_viewer_container", "reel_viewer", "clips_tab",
-            "reel_player_page", "shorts_container", "shorts_video_cell",
-            "reels_viewer", "fb_reels", "spotlight_video"
+            // Instagram
+            "clips_viewer_container", "reel_viewer", "clips_tab", "reel_player_page",
+            // YouTube Shorts
+            "shorts_container", "shorts_video_cell", "shorts_player",
+            "shorts_shelf_cell", "reel_watch_endpoint",
+            // Facebook
+            "reels_viewer", "fb_reels", "reels_player",
+            // Snapchat Spotlight
+            "spotlight_video", "spotlight_container",
+            // Pinterest
+            "video_pin", "story_pin",
+            // Twitter/X
+            "tweet_video", "video_player_overlay"
         )
     }
 
@@ -163,7 +174,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ── Scroll = nouveau reel ────────────────────────────────────────────────
 
     private fun handleScroll(event: AccessibilityEvent, pkg: String) {
-        if (!isInReelsSection) return
+        // Détection tardive : si le TYPE_WINDOW_STATE_CHANGED n'a pas déclenché
+        // l'entrée (ex: YouTube obfusque ses noms de classes), on tente ici —
+        // au moment du scroll, l'arbre de vues est forcément chargé.
+        if (!isInReelsSection) {
+            if (!tryEnterReelsSectionViaScroll(pkg)) return
+        }
+
         if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) return
 
         val now = System.currentTimeMillis()
@@ -177,6 +194,33 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         currentReelStartTime = now
 
         checkAndBlock(pkg)
+    }
+
+    /**
+     * Tente de détecter l'entrée dans la section Reels via l'arbre de vues au moment
+     * d'un scroll. Retourne true si on est maintenant en mode Reels.
+     */
+    private fun tryEnterReelsSectionViaScroll(pkg: String): Boolean {
+        // TikTok est toujours en mode Reels
+        val inReels = if (pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")) {
+            true
+        } else {
+            val root = rootInActiveWindow ?: return false
+            nodeContainsViewIds(root, REEL_VIEW_IDS)
+        }
+        if (!inReels) return false
+
+        // Entrée confirmée
+        isInReelsSection = true
+        currentReelStartTime = System.currentTimeMillis()
+        sessionTimeAccum = 0L
+        countOneReel(pkg)
+
+        // Vérifier le mode Focus dès l'entrée
+        if (quotaManager.isFocusModeActive()) {
+            checkAndBlock(pkg)
+        }
+        return true
     }
 
     // ── Vérification et blocage ──────────────────────────────────────────────
