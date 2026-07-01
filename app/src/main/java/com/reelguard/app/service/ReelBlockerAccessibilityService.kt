@@ -26,17 +26,16 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // Suivi de session
     private var currentPackage: String = ""
     private var isInReelsSection = false
-    private var currentReelStartTime = 0L   // début du reel EN COURS
-    private var sessionTimeAccum = 0L       // temps cumulé dans la session
-    private var reelsEntryTime = 0L         // heure d'entrée dans la section Reels
+    private var currentReelStartTime = 0L
+    private var sessionTimeAccum = 0L
 
-    // Anti-doublon pour les scrolls/content changes
-    private var lastScrollTime = 0L
-    private val SCROLL_DEBOUNCE_MS = 1500L  // 1,5s entre deux comptes
+    // Anti-doublon : 1,5s minimum entre deux comptes de reel
+    private var lastCountTime = 0L
+    private val COUNT_DEBOUNCE_MS = 1500L
 
-    // Après une entrée, on protège isInReelsSection pendant ce délai contre
-    // les TYPE_WINDOW_STATE_CHANGED parasites (ex: YouTube après clic Shorts)
-    private val REELS_ENTRY_PROTECTION_MS = 3000L
+    // Pour YouTube : on sort du mode Reels uniquement via clic sur un autre onglet
+    // (les TYPE_WINDOW_STATE_CHANGED entre Shorts ne doivent pas déclencher la sortie)
+    private var youtubeExitPending = false
 
     companion object {
         val TARGET_PACKAGES = setOf(
@@ -66,23 +65,26 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.snapchat.android" to listOf("chat", "conversation")
         )
 
-        // IDs de vues spécifiques aux sections Reels/Shorts/Spotlight de chaque app.
-        // Utilisés comme fallback quand le nom de classe ne matche pas (ex: YouTube obfusqué).
-        // Ces IDs sont vérifiés au moment du SCROLL (arbre de vues forcément chargé).
+        // Mots-clés des onglets Reels/Shorts dans la barre de navigation de chaque app
+        // (content description ou texte du bouton — résistant à l'obfuscation du code)
+        private val REELS_TAB_KEYWORDS = mapOf(
+            "com.google.android.youtube" to listOf("shorts"),
+            "com.facebook.katana"        to listOf("reels", "watch", "video", "vidéo", "reel"),
+            "com.snapchat.android"       to listOf("spotlight"),
+            "com.instagram.android"      to listOf("reels", "reel")
+        )
+
+        // Mots-clés des autres onglets YouTube (pour détecter la sortie de Shorts)
+        private val YOUTUBE_NON_SHORTS_TABS = listOf("home", "accueil", "explore",
+            "subscriptions", "abonnements", "library", "bibliothèque", "you")
+
+        // IDs de vues : fallback si les autres méthodes échouent
         private val REEL_VIEW_IDS = listOf(
-            // Instagram
             "clips_viewer_container", "reel_viewer", "clips_tab", "reel_player_page",
-            // YouTube Shorts
-            "shorts_container", "shorts_video_cell", "shorts_player",
-            "shorts_shelf_cell", "reel_watch_endpoint",
-            // Facebook
+            "shorts_container", "shorts_video_cell", "shorts_player", "shorts_shelf_cell",
             "reels_viewer", "fb_reels", "reels_player",
-            // Snapchat Spotlight
             "spotlight_video", "spotlight_container",
-            // Pinterest
-            "video_pin", "story_pin",
-            // Twitter/X
-            "tweet_video", "video_player_overlay"
+            "video_pin", "story_pin"
         )
     }
 
@@ -125,195 +127,239 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
 
         if (pkg == packageName || pkg in IGNORE_PACKAGES || pkg.startsWith("com.android.")) return
-        if (pkg !in TARGET_PACKAGES) {
-            onLeaveTargetApp()
-            return
-        }
+        if (pkg !in TARGET_PACKAGES) { onLeaveTargetApp(); return }
         if (!quotaManager.isBlockingEnabledForApp(pkg)) return
 
         when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED  -> handleWindowChange(event, pkg)
-            AccessibilityEvent.TYPE_VIEW_SCROLLED         -> handleScroll(event, pkg)
-            AccessibilityEvent.TYPE_VIEW_CLICKED          -> handleClick(event, pkg)
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> handleContentChange(pkg)
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED   -> handleWindowChange(event, pkg)
+            AccessibilityEvent.TYPE_VIEW_SCROLLED          -> handleScrollOrContent(event, pkg)
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> handleScrollOrContent(event, pkg)
+            AccessibilityEvent.TYPE_VIEW_CLICKED           -> handleClick(event, pkg)
         }
     }
 
-    // ── Clic sur un onglet de navigation ────────────────────────────────────
-    // Le bouton "Shorts" de YouTube (et équivalents) a toujours son label
-    // comme content description — fiable même si le code est obfusqué.
+    // ────────────────────────────────────────────────────────────────────────────
+    // CLIC SUR UN ONGLET DE NAVIGATION
+    // Le label du bouton (contentDescription) est toujours lisible même si le code
+    // est obfusqué — c'est une obligation d'accessibilité Android.
+    // ────────────────────────────────────────────────────────────────────────────
 
     private fun handleClick(event: AccessibilityEvent, pkg: String) {
         val text = (event.text?.joinToString(" ") ?: "").lowercase()
         val desc = event.contentDescription?.toString()?.lowercase() ?: ""
         val combined = "$text $desc"
 
-        val clickedReelsTab = when (pkg) {
-            "com.google.android.youtube" ->
-                combined.contains("shorts")
-            "com.snapchat.android" ->
-                combined.contains("spotlight")
-            "com.facebook.katana" ->
-                combined.contains("reels")
-            else -> false
+        val reelsKeywords = REELS_TAB_KEYWORDS[pkg] ?: return
+        if (reelsKeywords.any { combined.contains(it) }) {
+            if (!isInReelsSection) enterReelsSection(pkg)
+            youtubeExitPending = false
+            return
         }
 
-        if (clickedReelsTab && !isInReelsSection) {
-            enterReelsSection(pkg)
+        // Pour YouTube : si l'utilisateur clique sur un autre onglet → sortie de Shorts
+        if (pkg == "com.google.android.youtube" && isInReelsSection) {
+            if (YOUTUBE_NON_SHORTS_TABS.any { combined.contains(it) }) {
+                exitReelsSection()
+            }
         }
     }
 
-    // ── Changement d'activité ────────────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────────────────────
+    // CHANGEMENT DE FENÊTRE / ACTIVITÉ
+    // ────────────────────────────────────────────────────────────────────────────
 
     private fun handleWindowChange(event: AccessibilityEvent, pkg: String) {
         if (pkg != currentPackage) {
-            // L'utilisateur change d'app cible
             flushCurrentReel()
             currentPackage = pkg
         }
 
-        // Messagerie : exception, on sort du mode Reels
         if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) {
-            flushCurrentReel()
-            isInReelsSection = false
-            overlayManager.hideOverlay()
-            return
+            exitReelsSection(); return
         }
 
-        // Mode Focus : bloque dès que l'utilisateur navigue vers la section Reels
-        // (ou dès l'ouverture de TikTok qui est toujours "Reels")
         val inReels = isReelsContext(event, pkg)
-        if (inReels && quotaManager.isFocusModeActive()) {
-            checkAndBlock(pkg)
-            return
-        }
 
-        if (inReels && !isInReelsSection) {
-            enterReelsSection(pkg)
-        } else if (!inReels && isInReelsSection) {
-            // Sortie — mais pas si on vient juste d'entrer via un clic (race condition YouTube)
-            val protectionElapsed = System.currentTimeMillis() - reelsEntryTime
-            if (protectionElapsed > REELS_ENTRY_PROTECTION_MS) {
-                flushCurrentReel()
-                isInReelsSection = false
-                overlayManager.hideOverlay()
+        when {
+            // Entrée dans la section Reels
+            inReels && !isInReelsSection -> {
+                enterReelsSection(pkg)
+            }
+
+            // Déjà en mode Reels + changement de fenêtre dans les Reels
+            // → une nouvelle vidéo a chargé (YouTube Shorts, TikTok, etc.)
+            inReels && isInReelsSection -> {
+                countNewReel(pkg)
+                if (quotaManager.isFocusModeActive()) checkAndBlock(pkg)
+            }
+
+            // Sortie potentielle
+            !inReels && isInReelsSection -> {
+                when (pkg) {
+                    // YouTube : ne jamais sortir via window change — on gère via clic d'onglet
+                    // car YouTube envoie des window changes parasites pendant la navigation Shorts
+                    "com.google.android.youtube",
+                    "com.zhiliaoapp.musically",
+                    "com.ss.android.ugc.trill" -> { /* sortie gérée par handleClick / onLeaveTargetApp */ }
+                    else -> exitReelsSection()
+                }
             }
         }
 
         if (isInReelsSection) checkAndBlock(pkg)
     }
 
-    // ── Scroll = nouveau reel ────────────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────────────────────
+    // SCROLL / CHANGEMENT DE CONTENU
+    // Gère à la fois TYPE_VIEW_SCROLLED et TYPE_WINDOW_CONTENT_CHANGED
+    // ────────────────────────────────────────────────────────────────────────────
 
-    private fun handleScroll(event: AccessibilityEvent, pkg: String) {
-        // Détection tardive : si le TYPE_WINDOW_STATE_CHANGED n'a pas déclenché
-        // l'entrée (ex: YouTube obfusque ses noms de classes), on tente ici.
-        // Au moment du scroll, l'arbre de vues ET les métadonnées de l'événement
-        // sont forcément disponibles.
+    private fun handleScrollOrContent(event: AccessibilityEvent, pkg: String) {
         if (!isInReelsSection) {
-            if (!tryEnterReelsSectionViaScroll(event, pkg)) return
-            // Premier scroll = entrée : déjà compté dans tryEnter, on s'arrête ici
-            return
+            // Tentative d'entrée tardive (arbre de vues chargé au moment du scroll)
+            if (!tryEnterViaScroll(event, pkg)) return
+            return // Premier scroll = entrée, déjà compté dans enterReelsSection
         }
 
         if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) return
 
-        val now = System.currentTimeMillis()
-        if (now - lastScrollTime < SCROLL_DEBOUNCE_MS) return
-        lastScrollTime = now
-
-        // Durée du reel regardé = temps depuis le dernier scroll (ou l'entrée)
-        val reelDuration = if (currentReelStartTime > 0L) now - currentReelStartTime else 0L
-        if (reelDuration > 0L) sessionTimeAccum += reelDuration
-        quotaManager.recordReelSession(pkg, reelDuration)
-        currentReelStartTime = now
-
+        countNewReel(pkg)
         checkAndBlock(pkg)
     }
 
-    // ── Changement de contenu = nouveau reel (YouTube Shorts) ───────────────
-    // YouTube Shorts ne génère pas de TYPE_VIEW_SCROLLED lors des swipes.
-    // On utilise TYPE_WINDOW_CONTENT_CHANGED comme signal de "nouvelle vidéo chargée".
+    // ────────────────────────────────────────────────────────────────────────────
+    // DÉTECTION TARDIVE VIA SCROLL
+    // ────────────────────────────────────────────────────────────────────────────
 
-    private fun handleContentChange(pkg: String) {
-        if (!isInReelsSection) return
-        val now = System.currentTimeMillis()
-        if (now - lastScrollTime < SCROLL_DEBOUNCE_MS) return
-        lastScrollTime = now
-
-        val reelDuration = if (currentReelStartTime > 0L) now - currentReelStartTime else 0L
-        if (reelDuration > 0L) sessionTimeAccum += reelDuration
-        quotaManager.recordReelSession(pkg, reelDuration)
-        currentReelStartTime = now
-
-        checkAndBlock(pkg)
-    }
-
-    /**
-     * Détection tardive de la section Reels au moment d'un scroll.
-     * Utilise 3 niveaux : classe du scroll, texte de l'événement, puis IDs de vues.
-     */
-    private fun tryEnterReelsSectionViaScroll(event: AccessibilityEvent, pkg: String): Boolean {
+    private fun tryEnterViaScroll(event: AccessibilityEvent, pkg: String): Boolean {
         if (pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill")) {
-            enterReelsSection(pkg)
-            return true
+            enterReelsSection(pkg); return true
         }
 
-        // Niveau 1 : classe de la vue scrollée (différente de la classe de la fenêtre)
         val scrollClass = event.className?.toString()?.lowercase() ?: ""
-        // Niveau 2 : texte / description de l'événement (YouTube peut inclure "Shorts")
-        val eventText = (event.text?.joinToString(" ") ?: "").lowercase()
-        val contentDesc = event.contentDescription?.toString()?.lowercase() ?: ""
-        // Niveau 3 : ID de la vue source du scroll
-        val sourceId = event.source?.viewIdResourceName?.lowercase() ?: ""
+        val eventText   = (event.text?.joinToString(" ") ?: "").lowercase()
+        val sourceId    = event.source?.viewIdResourceName?.lowercase() ?: ""
 
-        val signalFound = when (pkg) {
+        val hit = when (pkg) {
             "com.google.android.youtube" ->
-                scrollClass.contains("short") ||
-                eventText.contains("short") ||
-                contentDesc.contains("short") ||
-                sourceId.contains("short")
+                scrollClass.contains("short") || eventText.contains("short") || sourceId.contains("short")
             "com.instagram.android" ->
                 scrollClass.contains("reel") || scrollClass.contains("clip") ||
                 sourceId.contains("reel") || sourceId.contains("clip")
             "com.facebook.katana" ->
-                scrollClass.contains("reel") || sourceId.contains("reel")
+                scrollClass.contains("reel") || scrollClass.contains("video") ||
+                sourceId.contains("reel") || eventText.contains("reel")
             "com.snapchat.android" ->
                 scrollClass.contains("spotlight") || sourceId.contains("spotlight")
             else -> false
         }
 
-        if (signalFound) {
-            enterReelsSection(pkg)
-            return true
-        }
+        if (hit) { enterReelsSection(pkg); return true }
 
-        // Niveau 4 : parcours de l'arbre de vues (plus lent, en dernier recours)
         val root = rootInActiveWindow ?: return false
-        if (nodeContainsViewIds(root, REEL_VIEW_IDS)) {
-            enterReelsSection(pkg)
-            return true
+        if (nodeContainsViewIds(root, REEL_VIEW_IDS)) { enterReelsSection(pkg); return true }
+        return false
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // DÉTECTION DU CONTEXTE (pour TYPE_WINDOW_STATE_CHANGED)
+    // ────────────────────────────────────────────────────────────────────────────
+
+    private fun isReelsContext(event: AccessibilityEvent, pkg: String): Boolean {
+        val className   = event.className?.toString()?.lowercase() ?: ""
+        val eventText   = (event.text?.joinToString(" ") ?: "").lowercase()
+        val contentDesc = event.contentDescription?.toString()?.lowercase() ?: ""
+
+        val hit = when (pkg) {
+            "com.instagram.android" ->
+                className.contains("reel") || className.contains("clip")
+            "com.google.android.youtube" ->
+                className.contains("short") || eventText.contains("short") || contentDesc.contains("short")
+            "com.facebook.katana" ->
+                className.contains("reel") || className.contains("video") ||
+                eventText.contains("reel") || contentDesc.contains("reel")
+            "com.snapchat.android" ->
+                className.contains("spotlight") || eventText.contains("spotlight")
+            "com.zhiliaoapp.musically", "com.ss.android.ugc.trill" -> true
+            else -> false
+        }
+        if (hit) return true
+
+        val root = rootInActiveWindow ?: return false
+        return nodeContainsViewIds(root, REEL_VIEW_IDS)
+    }
+
+    private fun isMessagingContext(event: AccessibilityEvent, pkg: String): Boolean {
+        val keywords = MESSAGING_KEYWORDS[pkg] ?: return false
+        val className = event.className?.toString()?.lowercase() ?: ""
+        val text = event.text?.joinToString(" ")?.lowercase() ?: ""
+        return keywords.any { className.contains(it) || text.contains(it) }
+    }
+
+    private fun nodeContainsViewIds(node: AccessibilityNodeInfo?, ids: List<String>, depth: Int = 0): Boolean {
+        if (node == null || depth > 6) return false
+        val viewId = node.viewIdResourceName?.lowercase() ?: ""
+        if (ids.any { viewId.contains(it) }) return true
+        for (i in 0 until node.childCount) {
+            if (nodeContainsViewIds(node.getChild(i), ids, depth + 1)) return true
         }
         return false
     }
 
+    // ────────────────────────────────────────────────────────────────────────────
+    // GESTION DE SESSION
+    // ────────────────────────────────────────────────────────────────────────────
+
     private fun enterReelsSection(pkg: String) {
         isInReelsSection = true
-        reelsEntryTime = System.currentTimeMillis()
-        currentReelStartTime = reelsEntryTime
+        currentReelStartTime = System.currentTimeMillis()
         sessionTimeAccum = 0L
-        countOneReel(pkg)
+        youtubeExitPending = false
+        quotaManager.recordReelSession(pkg, 0L) // compte le premier reel
+        lastCountTime = System.currentTimeMillis()
         if (quotaManager.isFocusModeActive()) checkAndBlock(pkg)
     }
 
-    // ── Vérification et blocage ──────────────────────────────────────────────
+    /** Comptabilise un nouveau reel avec debounce de 1,5s */
+    private fun countNewReel(pkg: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastCountTime < COUNT_DEBOUNCE_MS) return
+        lastCountTime = now
+
+        val reelDuration = if (currentReelStartTime > 0L) now - currentReelStartTime else 0L
+        if (reelDuration > 0L) sessionTimeAccum += reelDuration
+        quotaManager.recordReelSession(pkg, reelDuration)
+        currentReelStartTime = now
+    }
+
+    private fun exitReelsSection() {
+        flushCurrentReel()
+        isInReelsSection = false
+        overlayManager.hideOverlay()
+    }
+
+    private fun flushCurrentReel() {
+        if (isInReelsSection && currentReelStartTime > 0) {
+            val duration = System.currentTimeMillis() - currentReelStartTime
+            if (duration > 500) quotaManager.recordReelSession(currentPackage, duration)
+            currentReelStartTime = 0L
+            sessionTimeAccum = 0L
+        }
+    }
+
+    private fun onLeaveTargetApp() {
+        exitReelsSection()
+        cancelAutoExit()
+        currentPackage = ""
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // BLOCAGE
+    // ────────────────────────────────────────────────────────────────────────────
 
     private fun checkAndBlock(pkg: String) {
         val status = quotaManager.checkAndConsumeQuota(pkg)
-        if (!status.isExceeded) {
-            overlayManager.hideOverlay()
-            return
-        }
+        if (!status.isExceeded) { overlayManager.hideOverlay(); return }
 
         when {
             status.focusModeActive -> {
@@ -330,95 +376,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 showToastAndExit(getString(R.string.toast_facebook_blocked))
             pkg == "com.snapchat.android" ->
                 showToastAndExit(getString(R.string.toast_snapchat_blocked))
-            else -> {
-                overlayManager.showBlockOverlay(status)
-                scheduleAutoExit(2000)
-            }
+            else -> { overlayManager.showBlockOverlay(status); scheduleAutoExit(2000) }
         }
     }
 
-    // ── Détection du contexte ────────────────────────────────────────────────
-
-    /**
-     * Détection via TYPE_WINDOW_STATE_CHANGED.
-     * Niveau 1 : nom de classe de la fenêtre.
-     * Niveau 2 : texte/contentDescription de l'événement.
-     * Niveau 3 : view IDs dans l'arbre de vues (fallback).
-     */
-    private fun isReelsContext(event: AccessibilityEvent, pkg: String): Boolean {
-        val className = event.className?.toString()?.lowercase() ?: ""
-        val eventText = (event.text?.joinToString(" ") ?: "").lowercase()
-        val contentDesc = event.contentDescription?.toString()?.lowercase() ?: ""
-
-        val signalFound = when (pkg) {
-            "com.instagram.android" ->
-                className.contains("reel") || className.contains("clip")
-            "com.google.android.youtube" ->
-                className.contains("short") ||
-                eventText.contains("short") ||
-                contentDesc.contains("short")
-            "com.facebook.katana" ->
-                className.contains("reel") || eventText.contains("reel")
-            "com.snapchat.android" ->
-                className.contains("spotlight") || eventText.contains("spotlight")
-            "com.zhiliaoapp.musically", "com.ss.android.ugc.trill" ->
-                true
-            else -> false
-        }
-        if (signalFound) return true
-
-        // Fallback : view IDs dans l'arbre (apps avec classes obfusquées)
-        val root = rootInActiveWindow ?: return false
-        return nodeContainsViewIds(root, REEL_VIEW_IDS)
-    }
-
-    private fun nodeContainsViewIds(node: AccessibilityNodeInfo?, ids: List<String>, depth: Int = 0): Boolean {
-        if (node == null || depth > 6) return false
-        val viewId = node.viewIdResourceName?.lowercase() ?: ""
-        if (ids.any { viewId.contains(it) }) return true
-        for (i in 0 until node.childCount) {
-            if (nodeContainsViewIds(node.getChild(i), ids, depth + 1)) return true
-        }
-        return false
-    }
-
-    private fun isMessagingContext(event: AccessibilityEvent, pkg: String): Boolean {
-        val keywords = MESSAGING_KEYWORDS[pkg] ?: return false
-        val className = event.className?.toString()?.lowercase() ?: ""
-        val text = event.text?.joinToString(" ")?.lowercase() ?: ""
-        return keywords.any { className.contains(it) || text.contains(it) }
-    }
-
-    // ── Comptage ─────────────────────────────────────────────────────────────
-
-    private fun countOneReel(pkg: String) {
-        // Enregistre 1 reel avec 0ms (le temps sera ajouté au prochain scroll/exit)
-        quotaManager.recordReelSession(pkg, 0L)
-    }
-
-    private fun flushCurrentReel() {
-        if (isInReelsSection && currentReelStartTime > 0) {
-            val duration = System.currentTimeMillis() - currentReelStartTime
-            if (duration > 500) {
-                // Enregistrer seulement le temps du dernier reel (sans incrémenter le count)
-                // On passe duration négative pour signaler "temps seulement"
-                // → en réalité on ajoute le temps accumulé final
-                quotaManager.recordReelSession(currentPackage, duration)
-            }
-            currentReelStartTime = 0L
-            sessionTimeAccum = 0L
-        }
-    }
-
-    private fun onLeaveTargetApp() {
-        flushCurrentReel()
-        isInReelsSection = false
-        cancelAutoExit()
-        overlayManager.hideOverlay()
-        currentPackage = ""
-    }
-
-    // ── Actions système ──────────────────────────────────────────────────────
+    // ────────────────────────────────────────────────────────────────────────────
+    // UTILITAIRES SYSTÈME
+    // ────────────────────────────────────────────────────────────────────────────
 
     private fun showToastAndExit(message: String) {
         Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
@@ -427,10 +391,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     private fun scheduleAutoExit(delayMs: Long) {
         cancelAutoExit()
-        val runnable = Runnable {
-            overlayManager.hideOverlay()
-            performGlobalAction(GLOBAL_ACTION_HOME)
-        }
+        val runnable = Runnable { overlayManager.hideOverlay(); performGlobalAction(GLOBAL_ACTION_HOME) }
         autoExitRunnable = runnable
         handler.postDelayed(runnable, delayMs)
     }
@@ -440,17 +401,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         autoExitRunnable = null
     }
 
-    override fun onInterrupt() {
-        flushCurrentReel()
-        cancelAutoExit()
-        overlayManager.hideOverlay()
-    }
+    override fun onInterrupt() { exitReelsSection(); cancelAutoExit() }
 
     override fun onDestroy() {
         super.onDestroy()
-        flushCurrentReel()
+        exitReelsSection()
         cancelAutoExit()
-        overlayManager.hideOverlay()
         try { unregisterReceiver(backReceiver) } catch (_: Exception) {}
     }
 }
