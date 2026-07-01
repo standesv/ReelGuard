@@ -95,6 +95,18 @@ class QuotaManager private constructor(private val context: Context) {
 
     init {
         checkAndResetDailyQuotas()
+        migratePrefsIfNeeded()
+    }
+
+    private fun migratePrefsIfNeeded() {
+        // v1 : activer le quota en nombre pour les installations existantes
+        // (ancienne valeur par défaut = false, nouvelle = true)
+        if (!prefs.getBoolean("migration_count_enabled_v1", false)) {
+            prefs.edit {
+                putBoolean(KEY_COUNT_ENABLED, true)
+                putBoolean("migration_count_enabled_v1", true)
+            }
+        }
     }
 
     // ----------------------------------------------------------------

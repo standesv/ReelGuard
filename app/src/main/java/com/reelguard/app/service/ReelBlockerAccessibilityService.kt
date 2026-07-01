@@ -180,33 +180,25 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
         val inReels = isReelsContext(event, pkg)
 
-        when {
-            // Entrée dans la section Reels
-            inReels && !isInReelsSection -> {
-                enterReelsSection(pkg)
+        if (inReels && !isInReelsSection) {
+            // Entrée via changement de fenêtre (Instagram, TikTok — noms de classes fiables)
+            enterReelsSection(pkg)
+        } else if (!inReels && isInReelsSection) {
+            // Sortie seulement pour les apps dont la détection par classe est fiable.
+            // YouTube et Facebook génèrent des window changes parasites dans leurs sections
+            // Reels → on gère leur sortie uniquement via handleClick / onLeaveTargetApp.
+            if (pkg == "com.instagram.android") {
+                exitReelsSection()
+                return
             }
-
-            // Déjà en mode Reels + changement de fenêtre dans les Reels
-            // → une nouvelle vidéo a chargé (YouTube Shorts, TikTok, etc.)
-            inReels && isInReelsSection -> {
-                countNewReel(pkg)
-                if (quotaManager.isFocusModeActive()) checkAndBlock(pkg)
-            }
-
-            // Sortie potentielle
-            !inReels && isInReelsSection -> {
-                when (pkg) {
-                    // YouTube : ne jamais sortir via window change — on gère via clic d'onglet
-                    // car YouTube envoie des window changes parasites pendant la navigation Shorts
-                    "com.google.android.youtube",
-                    "com.zhiliaoapp.musically",
-                    "com.ss.android.ugc.trill" -> { /* sortie gérée par handleClick / onLeaveTargetApp */ }
-                    else -> exitReelsSection()
-                }
-            }
+            // Pour les autres apps : on reste en mode Reels (pas de faux-positif de sortie)
         }
 
-        if (isInReelsSection) checkAndBlock(pkg)
+        // Déjà en mode Reels → tout changement de fenêtre = potentiellement nouvelle vidéo
+        if (isInReelsSection) {
+            countNewReel(pkg)
+            checkAndBlock(pkg)
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────────────
