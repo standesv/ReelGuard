@@ -38,6 +38,23 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     private var youtubeExitPending = false
 
+    // Cooldown post-blocage : empêche enterReelsSection pendant 3s après showToastAndExit.
+    // Sans cela, les events AccessibilityService bufferisés qui arrivent après GLOBAL_ACTION_HOME
+    // peuvent rappeler enterReelsSection et relancer la boucle de blocage.
+    private var blockCooldownUntil = 0L
+
+    // Instagram : poller arbre de vues (toutes les 1,5s) + détection par clic (réponse immédiate).
+    private var instagramPollerRunnable: Runnable? = null
+    private val INSTAGRAM_POLL_MS = 1500L
+    private val INSTAGRAM_REEL_IDS = listOf(
+        // Conteneurs du lecteur Reels plein-écran uniquement.
+        // EXCLU "clips_tab" : c'est le bouton de l'onglet Reels dans la barre de navigation —
+        // il est présent dans l'arbre d'accessibilité sur TOUS les écrans Instagram (feed, DM,
+        // Explore, profil…) → causerait un faux positif systématique sur tout Instagram.
+        // EXCLU "reel_player_page" : peut apparaître pour les Reels intégrés dans le feed.
+        "clips_viewer_container", "reel_viewer"
+    )
+
     companion object {
         val TARGET_PACKAGES = setOf(
             "com.instagram.android",
@@ -66,12 +83,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.snapchat.android" to listOf("chat", "conversation")
         )
 
-        // Mots-clés des onglets Reels/Shorts (content description du bouton — résistant à l'obfuscation)
+        // Mots-clés des onglets Reels/Shorts (content description du bouton nav — résistant à l'obfuscation).
+        // Facebook : uniquement "reels" — "watch", "video", "vidéo" matchent des dizaines de boutons
+        // sur les posts du feed et causent des faux positifs dès l'ouverture de Facebook.
         private val REELS_TAB_KEYWORDS = mapOf(
             "com.google.android.youtube" to listOf("shorts"),
-            "com.facebook.katana"        to listOf("reels", "watch", "video", "vidéo", "reel"),
-            "com.snapchat.android"       to listOf("spotlight"),
-            "com.instagram.android"      to listOf("reels", "reel")
+            "com.facebook.katana"        to listOf("reels"),
+            "com.snapchat.android"       to listOf("spotlight")
         )
 
         private val YOUTUBE_NON_SHORTS_TABS = listOf("home", "accueil", "explore",
@@ -82,11 +100,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         // de la shelf "Shorts" sur l'accueil YouTube (faux-positif garanti).
         // Pour Facebook : noms obfusqués, on inclut tous les IDs potentiels connus.
         private val REEL_VIEW_IDS = listOf(
-            // Instagram
-            "clips_viewer_container", "reel_viewer", "clips_tab", "reel_player_page",
+            // Instagram (utilisé uniquement pour le tree-scan Facebook — les IDs Instagram
+            // sont dans INSTAGRAM_REEL_IDS ; clips_tab exclu car présent sur tous les écrans)
+            "clips_viewer_container", "reel_viewer", "reel_player_page",
             // YouTube
             "shorts_container", "shorts_player",
-            // Facebook (plusieurs variantes selon la version)
+            // Facebook (plusieurs variantes selon la version — obfusqués en pratique)
             "reels_viewer", "reels_view", "fb_reels", "reels_player", "reel_player",
             "reels_root", "reels_feed", "fb_reel", "reels_item",
             // Snapchat
@@ -138,6 +157,17 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         if (pkg !in TARGET_PACKAGES) { onLeaveTargetApp(); return }
         if (!quotaManager.isBlockingEnabledForApp(pkg)) return
 
+        // Instagram : on démarre le poller (détection passive toutes les 1,5s via arbre de vues)
+        // ET on conserve la détection par clic sur l'onglet Reels (réponse immédiate).
+        // On ignore scroll/window-change car les classes "reel"/"clip" apparaissent aussi sur le feed.
+        if (pkg == "com.instagram.android") {
+            startInstagramPoller()
+            if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+                handleClick(event, pkg)
+            }
+            return
+        }
+
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED   -> handleWindowChange(event, pkg)
             AccessibilityEvent.TYPE_VIEW_SCROLLED          -> handleScrollOrContent(event, pkg)
@@ -153,7 +183,18 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     private fun handleClick(event: AccessibilityEvent, pkg: String) {
         val text = (event.text?.joinToString(" ") ?: "").lowercase()
         val desc = event.contentDescription?.toString()?.lowercase() ?: ""
-        val combined = "$text $desc"
+        val combined = "$text $desc".trim()
+
+        // Instagram : correspondance stricte sur l'onglet Reels de la barre de navigation.
+        // Le label de l'onglet nav est court et précis ("reels" ou "reels, onglet 3").
+        // Un clic sur un post/story mentionnant "reel" a une description bien plus longue.
+        // On exclut ainsi les clics sur le contenu du feed qui mentionnent les Reels.
+        if (pkg == "com.instagram.android") {
+            if (combined.startsWith("reels") && combined.length <= 25 && !isInReelsSection) {
+                enterReelsSection(pkg)
+            }
+            return
+        }
 
         val reelsKeywords = REELS_TAB_KEYWORDS[pkg] ?: return
         if (reelsKeywords.any { combined.contains(it) }) {
@@ -185,19 +226,18 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
         if (inReels && !isInReelsSection) {
             enterReelsSection(pkg)
-        } else if (!inReels && isInReelsSection) {
-            if (pkg == "com.instagram.android") {
-                exitReelsSection(); return
-            }
         }
+        // Pas de sortie sur window change pour Instagram : trop de changements d'activité
+        // légitimes (commentaires, profil créateur…) provoqueraient des sorties prématurées.
+        // La sortie est gérée par le timer de session via rootInActiveWindow.
 
-        if (isInReelsSection) {
-            // YouTube/Facebook : flush du temps à chaque chargement de vidéo
-            // (Instagram/TikTok/Snapchat : géré via TYPE_VIEW_SCROLLED + session timer)
-            if (pkg in setOf("com.google.android.youtube", "com.facebook.katana")) {
-                softFlushTime()
-            }
-            checkAndBlock(pkg)  // toujours vérifier le quota au chargement d'une vidéo
+        // checkAndBlock uniquement pour YouTube/Facebook : chaque video = window change.
+        // Pour Instagram/Snapchat/TikTok : le timer de session (5s) suffit.
+        // Appeler checkAndBlock sur TOUT window change Instagram causait des blocages
+        // sur le feed normal (window changes fréquents hors section Reels).
+        if (isInReelsSection && pkg in setOf("com.google.android.youtube", "com.facebook.katana")) {
+            softFlushTime()
+            checkAndBlock(pkg)
         }
     }
 
@@ -206,13 +246,16 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ────────────────────────────────────────────────────────────────────────────
 
     private fun handleScrollOrContent(event: AccessibilityEvent, pkg: String) {
+        // TYPE_WINDOW_CONTENT_CHANGED ne doit PAS servir à détecter l'entrée en section Reels.
+        // Instagram a des IDs de vues contenant "reel" dans le feed normal (reel_ring_container,
+        // reel_tray pour les stories). Un changement de contenu du feed déclencherait un faux positif.
+        // On l'ignore totalement : seul TYPE_VIEW_SCROLLED est utilisé pour l'entrée.
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
+
         if (!isInReelsSection) {
             if (!tryEnterViaScroll(event, pkg)) return
             return
         }
-
-        // WINDOW_CONTENT_CHANGED : uniquement pour la détection d'entrée (bloc ci-dessus)
-        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
 
         if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) return
 
@@ -245,8 +288,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.google.android.youtube" ->
                 scrollClass.contains("short") || sourceId.contains("short")
             "com.instagram.android" ->
-                scrollClass.contains("reel") || scrollClass.contains("clip") ||
-                sourceId.contains("reel") || sourceId.contains("clip")
+                // Détection scroll désactivée pour Instagram : les classes "reel" et "clip"
+                // apparaissent aussi sur le feed normal (ReelTray, ClipVideoView inline…).
+                // Entrée uniquement via handleClick (tap onglet Reels, label court et exact).
+                false
             "com.snapchat.android" ->
                 scrollClass.contains("spotlight") || sourceId.contains("spotlight")
             else -> false
@@ -254,8 +299,9 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
         if (hit) { enterReelsSection(pkg); return true }
 
-        val root = rootInActiveWindow ?: return false
-        if (nodeContainsViewIds(root, REEL_VIEW_IDS)) { enterReelsSection(pkg); return true }
+        // PAS de fallback nodeContainsViewIds générique ici : le feed Instagram affiche
+        // des previews de Reels avec des IDs "reel_*" → faux positifs sur le feed normal.
+        // Le tree-scan reste réservé à Facebook (classe obfusquée) ci-dessus.
         return false
     }
 
@@ -270,7 +316,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
         val hit = when (pkg) {
             "com.instagram.android" ->
-                className.contains("reel") || className.contains("clip")
+                // Désactivé : Instagram charge ClipVideoView, ReelTrayFragment etc. même sur
+                // le feed normal → className "reel"/"clip" déclenchait enterReelsSection()
+                // sur l'accueil. Détection via handleClick (onglet nav) + tryEnterViaScroll.
+                false
             "com.google.android.youtube" ->
                 // eventText retiré : risque de faux-positif si le titre de la fenêtre inclut
                 // du contenu visible (section "Shorts" dans le feed de l'accueil).
@@ -288,8 +337,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         }
         if (hit) return true
 
-        val root = rootInActiveWindow ?: return false
-        return nodeContainsViewIds(root, REEL_VIEW_IDS)
+        // Tree-scan uniquement pour Facebook : IDs/classes obfusqués, impossible autrement.
+        // Pour Instagram/YouTube/Snapchat, la détection par className est suffisante et précise.
+        if (pkg == "com.facebook.katana") {
+            val root = rootInActiveWindow ?: return false
+            return nodeContainsViewIds(root, REEL_VIEW_IDS)
+        }
+        return false
     }
 
     private fun isMessagingContext(event: AccessibilityEvent, pkg: String): Boolean {
@@ -300,7 +354,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     }
 
     private fun nodeContainsViewIds(node: AccessibilityNodeInfo?, ids: List<String>, depth: Int = 0): Boolean {
-        if (node == null || depth > 6) return false
+        if (node == null || depth > 8) return false
         val viewId = node.viewIdResourceName?.lowercase() ?: ""
         if (ids.any { viewId.contains(it) }) return true
         for (i in 0 until node.childCount) {
@@ -314,6 +368,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ────────────────────────────────────────────────────────────────────────────
 
     private fun enterReelsSection(pkg: String) {
+        // Cooldown actif : on vient de bloquer, on ignore les events résiduels de l'app.
+        if (System.currentTimeMillis() < blockCooldownUntil) return
         isInReelsSection = true
         currentReelStartTime = System.currentTimeMillis()
         lastFlushTime = 0L
@@ -372,10 +428,42 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         sessionTimerRunnable = null
     }
 
+    private fun startInstagramPoller() {
+        if (instagramPollerRunnable != null) return  // déjà actif
+        val runnable = object : Runnable {
+            override fun run() {
+                val root = rootInActiveWindow
+                val fg = root?.packageName?.toString()
+                if (fg != "com.instagram.android") {
+                    // Instagram n'est plus au premier plan
+                    if (isInReelsSection) exitReelsSection()
+                    stopInstagramPoller()
+                    return
+                }
+                val reelsVisible = nodeContainsViewIds(root!!, INSTAGRAM_REEL_IDS)
+                when {
+                    reelsVisible && !isInReelsSection ->
+                        enterReelsSection("com.instagram.android")
+                    !reelsVisible && isInReelsSection ->
+                        exitReelsSection()
+                }
+                handler.postDelayed(this, INSTAGRAM_POLL_MS)
+            }
+        }
+        instagramPollerRunnable = runnable
+        handler.postDelayed(runnable, INSTAGRAM_POLL_MS)
+    }
+
+    private fun stopInstagramPoller() {
+        instagramPollerRunnable?.let { handler.removeCallbacks(it) }
+        instagramPollerRunnable = null
+    }
+
     private fun exitReelsSection() {
         flushCurrentReel()
         isInReelsSection = false
         stopSessionTimer()
+        cancelAutoExit()  // annule l'auto-exit en attente → évite HOME/overlay sur écran d'accueil
         overlayManager.hideOverlay()
     }
 
@@ -398,13 +486,22 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ────────────────────────────────────────────────────────────────────────────
 
     private fun checkAndBlock(pkg: String) {
+        // Ne bloquer QUE si une app cible est réellement au premier plan.
+        // ?: return → si rootInActiveWindow est null (home screen sur certains launchers),
+        // on ne bloque pas non plus : on ne peut pas confirmer que l'app est visible.
+        val foregroundPkg = rootInActiveWindow?.packageName?.toString() ?: return
+        if (foregroundPkg !in TARGET_PACKAGES) return
+
         val status = quotaManager.checkAndConsumeQuota(pkg)
         if (!status.isExceeded) { overlayManager.hideOverlay(); return }
 
         when {
             status.focusModeActive -> {
-                overlayManager.showBlockOverlay(status)
-                scheduleAutoExit(2000)
+                // showToastAndExit au lieu de l'overlay + scheduleAutoExit(2000) :
+                // L'overlay TYPE_APPLICATION_OVERLAY restait visible sur l'écran d'accueil
+                // si l'utilisateur appuyait sur HOME avant les 2 secondes → "message en background".
+                // Avec showToastAndExit : exitReelsSection() immédiat + HOME immédiat, pas d'overlay.
+                showToastAndExit(getString(R.string.overlay_focus_active, quotaManager.getFocusEndTimeDisplay()))
             }
             pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill") ->
                 showToastAndExit(getString(R.string.toast_tiktok_blocked))
@@ -425,19 +522,27 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ────────────────────────────────────────────────────────────────────────────
 
     private fun showToastAndExit(message: String) {
-        // Terminer la session AVANT la navigation : arrête le timer et vide l'état.
-        // Sans cela, le timer continuerait à appeler checkAndBlock() toutes les 5s
-        // même après que l'utilisateur ait quitté l'app → boucle de blocage.
+        // Cooldown 3s : bloque enterReelsSection pendant la transition HOME.
+        // Les events AccessibilityService arrivent en différé après GLOBAL_ACTION_HOME
+        // et pourraient sinon relancer la session immédiatement.
+        blockCooldownUntil = System.currentTimeMillis() + 3000L
         exitReelsSection()
         Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
-        // HOME (et non BACK) pour garantir une sortie de l'app cible,
-        // même si GLOBAL_ACTION_BACK resterait dans la section Reels.
         performGlobalAction(GLOBAL_ACTION_HOME)
     }
 
     private fun scheduleAutoExit(delayMs: Long) {
         cancelAutoExit()
-        val runnable = Runnable { overlayManager.hideOverlay(); performGlobalAction(GLOBAL_ACTION_HOME) }
+        val runnable = Runnable {
+            blockCooldownUntil = System.currentTimeMillis() + 3000L
+            exitReelsSection()  // stoppe timer + overlay + annule auto-exit lui-même
+            // Ne presser HOME que si l'utilisateur est encore dans une app cible.
+            // Si il a déjà quitté manuellement, inutile de le renvoyer sur home.
+            val current = rootInActiveWindow?.packageName?.toString()
+            if (current != null && current in TARGET_PACKAGES) {
+                performGlobalAction(GLOBAL_ACTION_HOME)
+            }
+        }
         autoExitRunnable = runnable
         handler.postDelayed(runnable, delayMs)
     }
@@ -447,13 +552,14 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         autoExitRunnable = null
     }
 
-    override fun onInterrupt() { exitReelsSection(); cancelAutoExit(); stopSessionTimer() }
+    override fun onInterrupt() { exitReelsSection(); cancelAutoExit(); stopSessionTimer(); stopInstagramPoller() }
 
     override fun onDestroy() {
         super.onDestroy()
         exitReelsSection()
         cancelAutoExit()
         stopSessionTimer()
+        stopInstagramPoller()
         try { unregisterReceiver(backReceiver) } catch (_: Exception) {}
     }
 }
