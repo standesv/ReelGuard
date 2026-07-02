@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -174,10 +175,21 @@ class QuotaManager private constructor(private val context: Context) {
     // ----------------------------------------------------------------
 
     fun checkAndResetDailyQuotas() {
-        val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val now = LocalDateTime.now()
+        val resetHour = prefs.getInt(KEY_RESET_HOUR, 0)
+
+        // La "période de quota" commence à l'heure de reset configurée.
+        // Si on est avant cette heure aujourd'hui, on est encore dans la période d'hier.
+        // Exemple avec reset à 4h : à 3h59 du matin, period = hier ; à 4h00, period = aujourd'hui.
+        val periodDate = if (now.hour >= resetHour) {
+            now.toLocalDate()
+        } else {
+            now.toLocalDate().minusDays(1)
+        }
+        val period = periodDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
         val lastReset = prefs.getString(KEY_LAST_RESET_DATE, "") ?: ""
 
-        if (today != lastReset) {
+        if (period != lastReset) {
             if (lastReset.isNotEmpty()) {
                 val timeUsed = prefs.getLong(KEY_TIME_TODAY_MS, 0L)
                 val metTime = isTimeQuotaEnabled() &&
@@ -196,7 +208,7 @@ class QuotaManager private constructor(private val context: Context) {
 
             prefs.edit {
                 putLong(KEY_TIME_TODAY_MS, 0L)
-                putString(KEY_LAST_RESET_DATE, today)
+                putString(KEY_LAST_RESET_DATE, period)
                 putBoolean(KEY_QUOTA_MET_TODAY, false)
             }
         }
@@ -302,6 +314,7 @@ class QuotaManager private constructor(private val context: Context) {
         prefs.edit { putBoolean(KEY_MESSAGING_EXCEPTION, enabled) }
 
     fun getCurrentQuotaStatus(): QuotaStatus {
+        checkAndResetDailyQuotas()
         val timeEnabled = isTimeQuotaEnabled()
         val timeLimitMs = getTimeLimitMin().toLong() * 60 * 1000
         val timeUsedMs = getTimeUsedMs()

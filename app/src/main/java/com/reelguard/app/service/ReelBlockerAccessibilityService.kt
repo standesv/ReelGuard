@@ -425,8 +425,14 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ────────────────────────────────────────────────────────────────────────────
 
     private fun showToastAndExit(message: String) {
+        // Terminer la session AVANT la navigation : arrête le timer et vide l'état.
+        // Sans cela, le timer continuerait à appeler checkAndBlock() toutes les 5s
+        // même après que l'utilisateur ait quitté l'app → boucle de blocage.
+        exitReelsSection()
         Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
-        performGlobalAction(GLOBAL_ACTION_BACK)
+        // HOME (et non BACK) pour garantir une sortie de l'app cible,
+        // même si GLOBAL_ACTION_BACK resterait dans la section Reels.
+        performGlobalAction(GLOBAL_ACTION_HOME)
     }
 
     private fun scheduleAutoExit(delayMs: Long) {
