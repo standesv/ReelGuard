@@ -80,11 +80,18 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         // IDs de vues : fallback si les autres méthodes échouent.
         // NE PAS inclure shorts_shelf_cell / shorts_video_cell : ce sont les cartes
         // de la shelf "Shorts" sur l'accueil YouTube (faux-positif garanti).
+        // Pour Facebook : noms obfusqués, on inclut tous les IDs potentiels connus.
         private val REEL_VIEW_IDS = listOf(
+            // Instagram
             "clips_viewer_container", "reel_viewer", "clips_tab", "reel_player_page",
+            // YouTube
             "shorts_container", "shorts_player",
-            "reels_viewer", "fb_reels", "reels_player",
+            // Facebook (plusieurs variantes selon la version)
+            "reels_viewer", "reels_view", "fb_reels", "reels_player", "reel_player",
+            "reels_root", "reels_feed", "fb_reel", "reels_item",
+            // Snapchat
             "spotlight_video", "spotlight_container",
+            // Pinterest
             "video_pin", "story_pin"
         )
     }
@@ -223,20 +230,23 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             enterReelsSection(pkg); return true
         }
 
+        // Facebook : noms de classe ET IDs de vues sont obfusqués → les vérifications
+        // string ne matchent jamais. On va directement à la vérification de l'arbre.
+        if (pkg == "com.facebook.katana") {
+            val root = rootInActiveWindow ?: return false
+            if (nodeContainsViewIds(root, REEL_VIEW_IDS)) { enterReelsSection(pkg); return true }
+            return false
+        }
+
         val scrollClass = event.className?.toString()?.lowercase() ?: ""
         val sourceId    = event.source?.viewIdResourceName?.lowercase() ?: ""
 
         val hit = when (pkg) {
             "com.google.android.youtube" ->
-                // eventText retiré : la shelf Shorts de l'accueil génère des textes contenant "short"
                 scrollClass.contains("short") || sourceId.contains("short")
             "com.instagram.android" ->
                 scrollClass.contains("reel") || scrollClass.contains("clip") ||
                 sourceId.contains("reel") || sourceId.contains("clip")
-            "com.facebook.katana" ->
-                // scrollClass "video" retiré : feed principal = vidéos partout
-                // eventText "reel" retiré : les captions peuvent contenir "reel"
-                scrollClass.contains("reel") || sourceId.contains("reel")
             "com.snapchat.android" ->
                 scrollClass.contains("spotlight") || sourceId.contains("spotlight")
             else -> false
@@ -262,7 +272,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.instagram.android" ->
                 className.contains("reel") || className.contains("clip")
             "com.google.android.youtube" ->
-                // eventText retiré : la shelf "Shorts" sur l'accueil contient "short" dans ses titres
+                // eventText retiré : risque de faux-positif si le titre de la fenêtre inclut
+                // du contenu visible (section "Shorts" dans le feed de l'accueil).
                 className.contains("short") || contentDesc.contains("short")
             "com.facebook.katana" ->
                 // TYPE_WINDOW_STATE_CHANGED se déclenche sur les changements d'Activity/Fragment,
@@ -330,9 +341,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     /**
      * Timer qui tourne toutes les 5s pendant la session Reels.
-     * Résout deux problèmes :
-     * 1. Regarder sans swiper → flush du temps quand même
-     * 2. Bouton home → rootInActiveWindow change → exitReelsSection() déclenché
+     * Deux rôles :
+     * 1. Flush périodique du temps (regarder sans swiper → temps quand même compté)
+     * 2. Détection du bouton home : rootInActiveWindow change de package → sortie propre
+     *    null = transition vidéo YouTube en cours → on ne sort PAS (évite les faux-positifs)
      */
     private fun startSessionTimer() {
         stopSessionTimer()
@@ -340,8 +352,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             override fun run() {
                 if (!isInReelsSection) return
                 val activePkg = rootInActiveWindow?.packageName?.toString()
-                // Ne sortir QUE sur un package étranger confirmé.
-                // null = arbre en cours de chargement (transition vidéo YouTube, etc.) → rester en session.
+                // Ne sortir QUE sur un package étranger CONFIRMÉ.
+                // null = arbre en cours de chargement (transition YouTube, etc.) → rester en session.
                 if (activePkg != null && activePkg !in TARGET_PACKAGES) {
                     exitReelsSection()
                     return
