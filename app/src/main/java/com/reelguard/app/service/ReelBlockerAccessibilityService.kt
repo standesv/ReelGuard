@@ -84,11 +84,11 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         )
 
         // Mots-clés des onglets Reels/Shorts (content description du bouton nav — résistant à l'obfuscation).
-        // Facebook : uniquement "reels" — "watch", "video", "vidéo" matchent des dizaines de boutons
-        // sur les posts du feed et causent des faux positifs dès l'ouverture de Facebook.
+        // Facebook : "reels" (EN) + "vidéos" (FR) — le label de l'onglet Reels en français est "Vidéos".
+        // On évite "vidéo" (singulier) et "watch" qui matchent les boutons de posts dans le feed.
         private val REELS_TAB_KEYWORDS = mapOf(
             "com.google.android.youtube" to listOf("shorts"),
-            "com.facebook.katana"        to listOf("reels"),
+            "com.facebook.katana"        to listOf("reels", "vidéos"),
             "com.snapchat.android"       to listOf("spotlight")
         )
 
@@ -273,11 +273,16 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             enterReelsSection(pkg); return true
         }
 
-        // Facebook : noms de classe ET IDs de vues sont obfusqués → les vérifications
-        // string ne matchent jamais. On va directement à la vérification de l'arbre.
+        // Facebook : IDs et classes obfusqués.
+        // Scan par IDs (peu fiable) + scan par texte visible "reels"/"vidéos".
+        // Le scan texte sur scroll est acceptable car si "reels" est visible à l'écran
+        // pendant un swipe, l'utilisateur est probablement dans la section Reels.
         if (pkg == "com.facebook.katana") {
             val root = rootInActiveWindow ?: return false
             if (nodeContainsViewIds(root, REEL_VIEW_IDS)) { enterReelsSection(pkg); return true }
+            if (nodeContainsText(root, "reels") || nodeContainsText(root, "vidéos")) {
+                enterReelsSection(pkg); return true
+            }
             return false
         }
 
@@ -325,11 +330,11 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 // du contenu visible (section "Shorts" dans le feed de l'accueil).
                 className.contains("short") || contentDesc.contains("short")
             "com.facebook.katana" ->
-                // TYPE_WINDOW_STATE_CHANGED se déclenche sur les changements d'Activity/Fragment,
-                // PAS sur les mises à jour de contenu du feed. eventText contient le titre
-                // de la section (ex: "Reels"), sans risque de faux-positif depuis le feed.
-                // className obfusqué par Facebook → peu fiable, gardé en bonus.
-                className.contains("reel") || eventText.contains("reel") || contentDesc.contains("reel")
+                // className obfusqué → peu fiable. On check eventText + contentDesc.
+                // "vidéos" ajouté : en français, l'onglet Reels est parfois nommé "Vidéos".
+                className.contains("reel") ||
+                eventText.contains("reel") || eventText.contains("vidéos") ||
+                contentDesc.contains("reel") || contentDesc.contains("vidéos")
             "com.snapchat.android" ->
                 className.contains("spotlight") || eventText.contains("spotlight")
             "com.zhiliaoapp.musically", "com.ss.android.ugc.trill" -> true
@@ -338,10 +343,14 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         if (hit) return true
 
         // Tree-scan uniquement pour Facebook : IDs/classes obfusqués, impossible autrement.
-        // Pour Instagram/YouTube/Snapchat, la détection par className est suffisante et précise.
+        // 1. Scan par IDs (peu fiable — obfusqués, gardé en dernier recours)
+        // 2. Scan par texte visible (non-obfusqué) : cherche "reels" ou "vidéos" dans les nœuds
+        //    de l'arbre. Appelé uniquement sur TYPE_WINDOW_STATE_CHANGED pour éviter les
+        //    faux-positifs du feed (posts mentionnant "reels" dans leur caption).
         if (pkg == "com.facebook.katana") {
             val root = rootInActiveWindow ?: return false
-            return nodeContainsViewIds(root, REEL_VIEW_IDS)
+            if (nodeContainsViewIds(root, REEL_VIEW_IDS)) return true
+            return nodeContainsText(root, "reels") || nodeContainsText(root, "vidéos")
         }
         return false
     }
@@ -359,6 +368,23 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         if (ids.any { viewId.contains(it) }) return true
         for (i in 0 until node.childCount) {
             if (nodeContainsViewIds(node.getChild(i), ids, depth + 1)) return true
+        }
+        return false
+    }
+
+    /**
+     * Scan l'arbre par TEXTE VISIBLE (pas par ID) — résistant à l'obfuscation de Facebook.
+     * Utilisé uniquement sur TYPE_WINDOW_STATE_CHANGED pour éviter les faux-positifs
+     * liés aux posts du feed qui mentionneraient "reels" dans leur description.
+     * Depth limité à 6 pour la performance.
+     */
+    private fun nodeContainsText(node: AccessibilityNodeInfo?, keyword: String, depth: Int = 0): Boolean {
+        if (node == null || depth > 6) return false
+        val text = node.text?.toString()?.lowercase() ?: ""
+        val desc = node.contentDescription?.toString()?.lowercase() ?: ""
+        if (text.contains(keyword) || desc.contains(keyword)) return true
+        for (i in 0 until node.childCount) {
+            if (nodeContainsText(node.getChild(i), keyword, depth + 1)) return true
         }
         return false
     }
