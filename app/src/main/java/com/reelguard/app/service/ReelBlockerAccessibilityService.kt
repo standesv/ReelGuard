@@ -401,7 +401,11 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         lastFlushTime = 0L
         youtubeExitPending = false
         startSessionTimer()
-        if (quotaManager.isFocusModeActive()) checkAndBlock(pkg)
+        // Vérifier IMMÉDIATEMENT le quota, pas seulement en mode focus.
+        // Sans ça, en mode timer, si le quota est déjà dépassé (quota utilisé plus tôt dans la
+        // journée), l'utilisateur entre dans les Reels et doit attendre 5s (timer de session)
+        // avant d'être bloqué. On vérifie dès l'entrée pour les deux modes.
+        checkAndBlock(pkg)
     }
 
     /**
@@ -442,7 +446,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 }
                 softFlushTime()
                 checkAndBlock(activePkg ?: currentPackage)
-                handler.postDelayed(this, SESSION_TIMER_MS)
+                // Re-planifier SEULEMENT si on est encore dans la section Reels.
+                // checkAndBlock peut appeler showToastAndExit → exitReelsSection → stopSessionTimer.
+                // Sans cette garde, postDelayed relancerait le timer qu'on vient d'annuler.
+                if (isInReelsSection) {
+                    handler.postDelayed(this, SESSION_TIMER_MS)
+                }
             }
         }
         sessionTimerRunnable = runnable
