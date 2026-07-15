@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var consentInformation: ConsentInformation
     private var isMobileAdsInitialized = AtomicBoolean(false)
 
-    // Receiver pour que l'overlay puisse déclencher "Retour" via le service
+    // Receiver pour que l'overlay puisse declencher "Retour" via le service
     private val backPressReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             onBackPressedDispatcher.onBackPressed()
@@ -38,44 +38,48 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        // Vérifier si c'est le premier lancement
+        // Onboarding : affiche jusqu'a ce que l'utilisateur clique "Demarrer".
+        // "onboarding_completed" est mis a true UNIQUEMENT dans le callback onComplete
+        // de l'OnboardingScreen, pas des onCreate comme l'ancien "first_launch".
         val prefs = getSharedPreferences("reelguard_prefs", Context.MODE_PRIVATE)
-        val isFirstLaunch = prefs.getBoolean("first_launch", true)
-        if (isFirstLaunch) {
-            prefs.edit().putBoolean("first_launch", false).apply()
-        }
+        val onboardingCompleted = prefs.getBoolean("onboarding_completed", false)
+        val showOnboarding = !onboardingCompleted
 
-        // ── Consentement RGPD via UMP ──────────────────────────────────────────
+        // Consentement RGPD via UMP
         val params = ConsentRequestParameters.Builder()
             .setTagForUnderAgeOfConsent(false)
             .build()
 
         consentInformation = UserMessagingPlatform.getConsentInformation(this)
+        // Si l'onboarding n'a pas encore ete complete, on reinitialise le statut
+        // UMP afin que le formulaire de consentement se reaffiche.
+        if (!onboardingCompleted) {
+            consentInformation.reset()
+        }
         consentInformation.requestConsentInfoUpdate(
             this,
             params,
             {
-                // Mise à jour du statut réussie : afficher le formulaire si nécessaire
+                // Mise a jour du statut reussie : afficher le formulaire si necessaire
                 UserMessagingPlatform.loadAndShowConsentFormIfRequired(this) { formError ->
                     if (formError != null) {
                         Log.w("UMP", "Consent form error: ${formError.message}")
                     }
-                    // Initialiser AdMob après que le consentement est traité
+                    // Initialiser AdMob apres que le consentement est traite
                     initMobileAdsIfNeeded()
                 }
             },
             { requestError ->
-                // Erreur réseau / config : initialiser quand même (mode dégradé)
+                // Erreur reseau / config : initialiser quand meme (mode degrade)
                 Log.w("UMP", "Consent request error: ${requestError.message}")
                 initMobileAdsIfNeeded()
             }
         )
 
-        // Si le consentement était déjà accordé lors d'une session précédente
+        // Si le consentement etait deja accorde lors d'une session precedente
         if (consentInformation.canRequestAds()) {
             initMobileAdsIfNeeded()
         }
-        // ────────────────────────────────────────────────────────────────────────
 
         setContent {
             ReelGuardTheme {
@@ -83,7 +87,12 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation(showOnboarding = isFirstLaunch)
+                    AppNavigation(
+                        showOnboarding = showOnboarding,
+                        onOnboardingComplete = {
+                            prefs.edit().putBoolean("onboarding_completed", true).apply()
+                        }
+                    )
                 }
             }
         }

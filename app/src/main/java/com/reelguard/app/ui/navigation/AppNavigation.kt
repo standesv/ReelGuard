@@ -15,7 +15,7 @@ object Routes {
 }
 
 @Composable
-fun AppNavigation(showOnboarding: Boolean) {
+fun AppNavigation(showOnboarding: Boolean, onOnboardingComplete: () -> Unit = {}) {
     val navController = rememberNavController()
     val startDest = if (showOnboarding) Routes.ONBOARDING else Routes.DASHBOARD
 
@@ -23,6 +23,7 @@ fun AppNavigation(showOnboarding: Boolean) {
         composable(Routes.ONBOARDING) {
             OnboardingScreen(
                 onComplete = {
+                    onOnboardingComplete()
                     navController.navigate(Routes.DASHBOARD) {
                         popUpTo(Routes.ONBOARDING) { inclusive = true }
                     }
