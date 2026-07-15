@@ -157,13 +157,19 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         if (pkg !in TARGET_PACKAGES) { onLeaveTargetApp(); return }
         if (!quotaManager.isBlockingEnabledForApp(pkg)) return
 
-        // Instagram : on démarre le poller (détection passive toutes les 1,5s via arbre de vues)
-        // ET on conserve la détection par clic sur l'onglet Reels (réponse immédiate).
-        // On ignore scroll/window-change car les classes "reel"/"clip" apparaissent aussi sur le feed.
+        // Instagram : poller (entrée) + clic (entrée/sortie nav) + window-change (sortie DMs).
+        // Scroll et window-change ignorés pour l'entrée : classes "reel"/"clip" présentes sur le feed.
         if (pkg == "com.instagram.android") {
             startInstagramPoller()
-            if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-                handleClick(event, pkg)
+            when (event.eventType) {
+                AccessibilityEvent.TYPE_VIEW_CLICKED -> handleClick(event, pkg)
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                    // Sortie si l'utilisateur ouvre les DMs pendant une session Reels
+                    if (isInReelsSection && quotaManager.isMessagingExceptionEnabled()
+                        && isMessagingContext(event, pkg)) {
+                        exitReelsSection()
+                    }
+                }
             }
             return
         }
@@ -185,13 +191,17 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         val desc = event.contentDescription?.toString()?.lowercase() ?: ""
         val combined = "$text $desc".trim()
 
-        // Instagram : correspondance stricte sur l'onglet Reels de la barre de navigation.
-        // Le label de l'onglet nav est court et précis ("reels" ou "reels, onglet 3").
-        // Un clic sur un post/story mentionnant "reel" a une description bien plus longue.
-        // On exclut ainsi les clics sur le contenu du feed qui mentionnent les Reels.
+        // Instagram — entrée ET sortie par clic sur la nav bar.
+        // Labels de nav bar : courts et précis ("reels", "accueil", "rechercher", "profil"…).
+        // Clics sur le contenu du feed ont des descriptions bien plus longues → filtrés par length.
         if (pkg == "com.instagram.android") {
             if (combined.startsWith("reels") && combined.length <= 25 && !isInReelsSection) {
+                // Tap sur l'onglet Reels → entrée
                 enterReelsSection(pkg)
+            } else if (isInReelsSection && combined.length <= 25) {
+                // Tap sur un autre onglet nav → sortie de session
+                val exitTabs = listOf("accueil", "home", "rechercher", "search", "profil", "profile")
+                if (exitTabs.any { combined.startsWith(it) }) exitReelsSection()
             }
             return
         }
@@ -470,17 +480,19 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 val root = rootInActiveWindow
                 val fg = root?.packageName?.toString()
                 if (fg != "com.instagram.android") {
-                    // Instagram n'est plus au premier plan
+                    // Instagram n'est plus au premier plan → sortie
                     if (isInReelsSection) exitReelsSection()
                     stopInstagramPoller()
                     return
                 }
-                val reelsVisible = nodeContainsViewIds(root!!, INSTAGRAM_REEL_IDS)
-                when {
-                    reelsVisible && !isInReelsSection ->
-                        enterReelsSection("com.instagram.android")
-                    !reelsVisible && isInReelsSection ->
-                        exitReelsSection()
+                // ENTRÉE uniquement : si les vues Reels sont présentes et qu'on n'est pas en session.
+                // PAS de sortie ici quand les IDs disparaissent :
+                // • L'arbre peut être vide brièvement entre deux swipes → faux-positif de sortie
+                // • Les IDs "clips_viewer_container"/"reel_viewer" peuvent être absents de l'arbre
+                //   même quand l'utilisateur est bien dans les Reels (dépend de la version d'IG)
+                // La SORTIE est gérée par : timer de session (foreground) + clics nav + DMs.
+                if (!isInReelsSection && nodeContainsViewIds(root!!, INSTAGRAM_REEL_IDS)) {
+                    enterReelsSection("com.instagram.android")
                 }
                 handler.postDelayed(this, INSTAGRAM_POLL_MS)
             }
@@ -557,13 +569,15 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ────────────────────────────────────────────────────────────────────────────
 
     private fun showToastAndExit(message: String) {
-        // Cooldown 3s : bloque enterReelsSection pendant la transition HOME.
-        // Les events AccessibilityService arrivent en différé après GLOBAL_ACTION_HOME
-        // et pourraient sinon relancer la session immédiatement.
         blockCooldownUntil = System.currentTimeMillis() + 3000L
         exitReelsSection()
         Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
-        performGlobalAction(GLOBAL_ACTION_HOME)
+        // BACK d'abord → quitte le lecteur vidéo plein écran.
+        // Sans ça, YouTube et Facebook activent le mode PiP (petite fenêtre flottante) lors du HOME,
+        // et l'utilisateur peut rouvrir la vidéo en touchant la fenêtre PiP.
+        // Avec BACK : le plein écran est fermé avant HOME → pas de PiP.
+        performGlobalAction(GLOBAL_ACTION_BACK)
+        handler.postDelayed({ performGlobalAction(GLOBAL_ACTION_HOME) }, 250)
     }
 
     private fun scheduleAutoExit(delayMs: Long) {
