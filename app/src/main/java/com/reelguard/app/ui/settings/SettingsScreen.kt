@@ -109,9 +109,9 @@ fun SettingsScreen(
                         Text(stringResource(R.string.time_quota_max, vm.timeLimitMin))
                         Slider(
                             value = vm.timeLimitMin.toFloat(),
-                            onValueChange = { vm.timeLimitMin = it.toInt() },
+                            onValueChange = { vm.timeLimitMin = (Math.round(it / 5f) * 5).coerceIn(5, 120) },
                             valueRange = 5f..120f,
-                            steps = 23
+                            steps = 22
                         )
                     }
                 }
