@@ -163,6 +163,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             startInstagramPoller()
             when (event.eventType) {
                 AccessibilityEvent.TYPE_VIEW_CLICKED -> handleClick(event, pkg)
+                AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
+                    // Flush du temps sur chaque swipe Reels (même logique que YouTube/Facebook).
+                    // On ne risque PAS de faux-positif d'ENTRÉE ici car on vérifie isInReelsSection.
+                    // L'entrée en section est gérée exclusivement par handleClick + le poller.
+                    if (isInReelsSection) { if (softFlushTime()) checkAndBlock(pkg) }
+                }
                 AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                     // Sortie si l'utilisateur ouvre les DMs pendant une session Reels
                     if (isInReelsSection && quotaManager.isMessagingExceptionEnabled()
@@ -479,7 +485,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             override fun run() {
                 val root = rootInActiveWindow
                 val fg = root?.packageName?.toString()
-                if (fg != "com.instagram.android") {
+                // Sortir UNIQUEMENT si un package différent est CONFIRMÉ au premier plan.
+                // fg == null = arbre en transition (swipe entre Reels, chargement vidéo, etc.)
+                // → on NE sort PAS, on reste en session. Même logique que le timer de session.
+                // Sans ce null-check, chaque transition vidéo Instagram déclenchait un exit
+                // prématuré, créant un trou de ~1,5s non comptabilisé dans le timer.
+                if (fg != null && fg != "com.instagram.android") {
                     // Instagram n'est plus au premier plan → sortie
                     if (isInReelsSection) exitReelsSection()
                     stopInstagramPoller()
@@ -491,7 +502,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 // • Les IDs "clips_viewer_container"/"reel_viewer" peuvent être absents de l'arbre
                 //   même quand l'utilisateur est bien dans les Reels (dépend de la version d'IG)
                 // La SORTIE est gérée par : timer de session (foreground) + clics nav + DMs.
-                if (!isInReelsSection && nodeContainsViewIds(root!!, INSTAGRAM_REEL_IDS)) {
+                if (fg == "com.instagram.android" && !isInReelsSection
+                    && nodeContainsViewIds(root!!, INSTAGRAM_REEL_IDS)) {
                     enterReelsSection("com.instagram.android")
                 }
                 handler.postDelayed(this, INSTAGRAM_POLL_MS)

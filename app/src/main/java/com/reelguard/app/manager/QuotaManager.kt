@@ -211,6 +211,19 @@ class QuotaManager private constructor(private val context: Context) {
                 putString(KEY_LAST_RESET_DATE, period)
                 putBoolean(KEY_QUOTA_MET_TODAY, false)
             }
+
+            // Notifier les observateurs du reset. Le try-catch couvre le cas où
+            // checkAndResetDailyQuotas() est appelé depuis l'initialiseur de _quotaState
+            // (via getCurrentQuotaStatus) — à ce moment _quotaState n'est pas encore créé.
+            try {
+                _quotaState.value = QuotaStatus(
+                    timeLimitMin = if (isTimeQuotaEnabled()) getTimeLimitMin() else -1,
+                    timeUsedMs = 0L,
+                    timeRemainingMs = if (isTimeQuotaEnabled())
+                        getTimeLimitMin().toLong() * 60 * 1000 else -1L,
+                    streakDays = getStreakDays()
+                )
+            } catch (_: Exception) {}
         }
     }
 
