@@ -172,10 +172,25 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                         && isMessagingContext(event, pkg)) {
                         exitReelsSection()
                     }
+                    // Entrée via changement de fenêtre : scan de l'arbre pour IDs Reels.
+                    // Couvre les cas où l'utilisateur arrive dans les Reels via deep link
+                    // ou notification sans cliquer sur l'onglet Reels (pas de clic event).
+                    if (!isInReelsSection) {
+                        val root = rootInActiveWindow
+                        if (root != null && nodeContainsViewIds(root, INSTAGRAM_REEL_IDS)) {
+                            enterReelsSection(pkg)
+                        }
+                    }
                 }
             }
             return
         }
+
+        // Démarrer les pollers spécifiques à chaque app dès que l'app est au premier plan.
+        // Les pollers détectent l'entrée en section Reels de façon proactive (scan de l'arbre)
+        // en complément des events accessibility (qui peuvent manquer des changements).
+        if (pkg == "com.facebook.katana") startFacebookPoller()
+        if (pkg == "com.snapchat.android") startSnapchatPoller()
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED   -> handleWindowChange(event, pkg)
@@ -198,8 +213,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         // Labels de nav bar : courts et précis ("reels", "accueil", "rechercher", "profil"…).
         // Clics sur le contenu du feed ont des descriptions bien plus longues → filtrés par length.
         if (pkg == "com.instagram.android") {
-            if (combined.startsWith("reels") && combined.length <= 25 && !isInReelsSection) {
-                // Tap sur l'onglet Reels → entrée
+            if (combined.contains("reels") && combined.length <= 25 && !isInReelsSection) {
+                // Tap sur l'onglet Reels → entrée (contains pour couvrir "Onglet Reels", "Accès Reels"…)
                 enterReelsSection(pkg)
             } else if (isInReelsSection && combined.length <= 25) {
                 // Tap sur un autre onglet nav → sortie de session
@@ -515,6 +530,84 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         instagramPollerRunnable = null
     }
 
+    // ────────────────────────────────────────────────────────────────────────────
+    // POLLER FACEBOOK
+    // Scan périodique de l'arbre de vues pour détecter la section Reels de Facebook.
+    // Nécessaire car les noms de classes de Facebook sont obfusqués, et les events
+    // TYPE_WINDOW_STATE_CHANGED peuvent ne pas contenir "reels" dans le texte/classe.
+    // ────────────────────────────────────────────────────────────────────────────
+
+    private var facebookPollerRunnable: Runnable? = null
+    private val FACEBOOK_POLL_MS = 2000L
+
+    private fun startFacebookPoller() {
+        if (facebookPollerRunnable != null) return
+        val runnable = object : Runnable {
+            override fun run() {
+                val root = rootInActiveWindow
+                val fg = root?.packageName?.toString()
+                if (fg != null && fg != "com.facebook.katana") {
+                    if (isInReelsSection) exitReelsSection()
+                    stopFacebookPoller()
+                    return
+                }
+                if (fg == "com.facebook.katana" && !isInReelsSection) {
+                    if (root != null &&
+                        (nodeContainsText(root, "reels") || nodeContainsText(root, "vidéos")
+                                || nodeContainsViewIds(root, REEL_VIEW_IDS))) {
+                        enterReelsSection("com.facebook.katana")
+                    }
+                }
+                handler.postDelayed(this, FACEBOOK_POLL_MS)
+            }
+        }
+        facebookPollerRunnable = runnable
+        handler.postDelayed(runnable, FACEBOOK_POLL_MS)
+    }
+
+    private fun stopFacebookPoller() {
+        facebookPollerRunnable?.let { handler.removeCallbacks(it) }
+        facebookPollerRunnable = null
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // POLLER SNAPCHAT
+    // Scan périodique pour détecter la section Spotlight de Snapchat.
+    // Le nom de classe de la vue Spotlight n'est pas fiable selon les versions ;
+    // le scan par texte ("spotlight") est plus robuste.
+    // ────────────────────────────────────────────────────────────────────────────
+
+    private var snapchatPollerRunnable: Runnable? = null
+    private val SNAPCHAT_POLL_MS = 2000L
+
+    private fun startSnapchatPoller() {
+        if (snapchatPollerRunnable != null) return
+        val runnable = object : Runnable {
+            override fun run() {
+                val root = rootInActiveWindow
+                val fg = root?.packageName?.toString()
+                if (fg != null && fg != "com.snapchat.android") {
+                    if (isInReelsSection) exitReelsSection()
+                    stopSnapchatPoller()
+                    return
+                }
+                if (fg == "com.snapchat.android" && !isInReelsSection) {
+                    if (root != null && nodeContainsText(root, "spotlight")) {
+                        enterReelsSection("com.snapchat.android")
+                    }
+                }
+                handler.postDelayed(this, SNAPCHAT_POLL_MS)
+            }
+        }
+        snapchatPollerRunnable = runnable
+        handler.postDelayed(runnable, SNAPCHAT_POLL_MS)
+    }
+
+    private fun stopSnapchatPoller() {
+        snapchatPollerRunnable?.let { handler.removeCallbacks(it) }
+        snapchatPollerRunnable = null
+    }
+
     private fun exitReelsSection() {
         flushCurrentReel()
         isInReelsSection = false
@@ -559,6 +652,15 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 // Avec showToastAndExit : exitReelsSection() immédiat + HOME immédiat, pas d'overlay.
                 showToastAndExit(getString(R.string.overlay_focus_active, quotaManager.getFocusEndTimeDisplay()))
             }
+            status.scheduledBlocked -> {
+                // Overlay persistant pour les plages horaires.
+                // scheduleAutoExitScheduled (sans blockCooldownUntil) : après l'auto-exit (2s),
+                // l'utilisateur peut tenter de revenir, mais enterReelsSection → checkAndBlock
+                // détectera immédiatement la plage toujours active et rebloquera avec l'overlay.
+                // Résultat : blocage continu et ininterrompu pendant toute la plage horaire.
+                overlayManager.showBlockOverlay(status)
+                scheduleAutoExitScheduled()
+            }
             pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill") ->
                 showToastAndExit(getString(R.string.toast_tiktok_blocked))
             pkg == "com.instagram.android" ->
@@ -589,6 +691,26 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         handler.postDelayed({ performGlobalAction(GLOBAL_ACTION_HOME) }, 250)
     }
 
+    /**
+     * Auto-exit spécifique aux plages horaires bloquées.
+     * Contrairement à scheduleAutoExit(), ne positionne PAS blockCooldownUntil :
+     * l'absence de cooldown permet à enterReelsSection() de se déclencher immédiatement
+     * lors de la prochaine tentative d'accès, garantissant un overlay instantané
+     * et donc un blocage continu pendant toute la durée de la plage horaire.
+     */
+    private fun scheduleAutoExitScheduled() {
+        cancelAutoExit()
+        val runnable = Runnable {
+            exitReelsSection()
+            val current = rootInActiveWindow?.packageName?.toString()
+            if (current != null && current in TARGET_PACKAGES) {
+                performGlobalAction(GLOBAL_ACTION_HOME)
+            }
+        }
+        autoExitRunnable = runnable
+        handler.postDelayed(runnable, 2000L)
+    }
+
     private fun scheduleAutoExit(delayMs: Long) {
         cancelAutoExit()
         val runnable = Runnable {
@@ -610,7 +732,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         autoExitRunnable = null
     }
 
-    override fun onInterrupt() { exitReelsSection(); cancelAutoExit(); stopSessionTimer(); stopInstagramPoller() }
+    override fun onInterrupt() {
+        exitReelsSection(); cancelAutoExit()
+        stopSessionTimer(); stopInstagramPoller(); stopFacebookPoller(); stopSnapchatPoller()
+    }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -618,6 +743,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         cancelAutoExit()
         stopSessionTimer()
         stopInstagramPoller()
+        stopFacebookPoller()
+        stopSnapchatPoller()
         try { unregisterReceiver(backReceiver) } catch (_: Exception) {}
     }
 }
