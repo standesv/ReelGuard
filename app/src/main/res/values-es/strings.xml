@@ -85,9 +85,6 @@
     <string name="app_tiktok_alt">TikTok (alt.)</string>
     <string name="app_facebook">Facebook Reels</string>
     <string name="app_snapchat">Snapchat Spotlight</string>
-    <string name="app_pinterest">Pinterest</string>
-    <string name="app_twitter">X / Twitter</string>
-    <string name="app_x">X</string>
 
     <!-- Ajustes -->
     <string name="settings_title">Ajustes</string>
@@ -108,16 +105,37 @@
     <string name="messaging_title">Mensajería</string>
     <string name="messaging_toggle">Permitir reels en mensajes privados</string>
     <string name="messaging_desc">Los reels recibidos en mensajes privados (Instagram DM, Messenger, Snapchat) no se bloquean.</string>
-    <string name="pin_title">Antibypass</string>
-    <string name="pin_toggle_label">PIN de protección</string>
-    <string name="pin_toggle_desc">Requerir un PIN para desactivar ReelGuard</string>
-    <string name="pin_change">Cambiar PIN</string>
-    <string name="pin_delay_info">Se aplica un retraso de 30 segundos antes de cualquier desactivación.</string>
     <string name="pin_dialog_title">Establecer un PIN</string>
     <string name="pin_field_label">PIN (4–6 dígitos)</string>
     <string name="pin_confirm_label">Confirmar PIN</string>
     <string name="pin_error">Los PIN no coinciden</string>
     <string name="btn_validate">Validar</string>
+
+    <!-- Modo Parental -->
+    <string name="parental_mode_title">Modo Parental</string>
+    <string name="parental_mode_toggle">Activar Modo Parental</string>
+    <string name="parental_mode_desc">Requiere un PIN para acceder a los ajustes. Evita que su hijo modifique la configuración.</string>
+    <string name="parental_no_pin_warning">⚠️ No hay PIN establecido — pulse abajo para añadir uno y bloquear los ajustes.</string>
+    <string name="parental_pin_set">Establecer PIN</string>
+    <string name="parental_pin_change">Cambiar PIN</string>
+    <string name="parental_pin_remove">Eliminar PIN</string>
+    <string name="parental_pin_verify_disable">Introduzca su PIN para desactivar el Modo Parental.</string>
+    <string name="parental_pin_verify_remove">Introduzca su PIN actual para eliminarlo.</string>
+    <string name="parental_guide_btn">¿Cómo evitar la eliminación de datos?</string>
+    <string name="parental_locked_hint">Modo Parental activo — vaya a Ajustes para modificar.</string>
+    <string name="pin_unlock_title">Ajustes parentales</string>
+    <string name="pin_unlock_desc">Introduzca su PIN para acceder a los ajustes.</string>
+    <string name="pin_unlock_error">PIN incorrecto</string>
+    <string name="pin_unlock_cancel">Volver</string>
+    <string name="protection_guide_title">Evitar la eliminación de datos</string>
+    <string name="protection_guide_intro">Para proteger completamente ReelGuard, combine el PIN anterior con uno de estos métodos para evitar que su hijo borre los datos de la app o la desinstale.</string>
+    <string name="protection_guide_family_link_title">Opción 1 — Google Family Link (recomendado)</string>
+    <string name="protection_guide_family_link_body">1. Instale Family Link en su teléfono (padre/madre).\n2. Cree una cuenta de Google supervisada para su hijo o vincule la existente.\n3. Inicie sesión con esa cuenta en el teléfono de su hijo.\n4. En Family Link: perfil del hijo → Aplicaciones → ReelGuard → bloquear desinstalación.\n\nFamily Link también permite aprobar descargas de apps, establecer límites de tiempo de pantalla diarios y ver la ubicación de su hijo.</string>
+    <string name="protection_guide_wellbeing_title">Opción 2 — Bienestar digital (básico)</string>
+    <string name="protection_guide_wellbeing_body">En el teléfono del niño: Ajustes → Bienestar digital y controles parentales → Controles parentales. Es una opción más sencilla — restringe algunos ajustes pero no impide el borrado de datos de la app.</string>
+    <string name="protection_guide_close">Entendido</string>
+    <string name="cd_parental_active">Modo Parental activo</string>
+
     <string name="schedule_dialog_title">Añadir una franja horaria</string>
     <string name="schedule_from_to">De %1$02dh a %2$02dh</string>
     <string name="schedule_start_hour">Inicio: %1$02dh</string>

@@ -35,6 +35,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     var pinEnabled by mutableStateOf(qm.isPinEnabled())
     var messagingException by mutableStateOf(qm.isMessagingExceptionEnabled())
     var resetHour by mutableIntStateOf(qm.prefs.getInt(QuotaManager.KEY_RESET_HOUR, 0))
+    var parentalMode by mutableStateOf(qm.isParentalModeEnabled())
 
     fun save() {
         qm.setTimeQuotaEnabled(timeEnabled)
@@ -49,6 +50,13 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         qm.setPin(pin)
         pinEnabled = pin.isNotEmpty()
     }
+
+    fun verifyPin(pin: String): Boolean = qm.verifyPin(pin)
+
+    fun setParentalModeEnabled(enabled: Boolean) {
+        qm.setParentalModeEnabled(enabled)
+        parentalMode = enabled
+    }
 }
 
 // ---- Screen ----
@@ -59,8 +67,15 @@ fun SettingsScreen(
     onBack: () -> Unit,
     vm: SettingsViewModel = viewModel()
 ) {
-    var showPinDialog by remember { mutableStateOf(false) }
+    var showPinSetupDialog by remember { mutableStateOf(false) }
+    var showPinVerifyDialog by remember { mutableStateOf(false) }
+    var showPinVerifyForDisable by remember { mutableStateOf(false) }
     var showAddSchedule by remember { mutableStateOf(false) }
+    var showProtectionGuide by remember { mutableStateOf(false) }
+
+    // If parental mode + PIN are both active, require PIN to enter settings
+    var isUnlocked by remember { mutableStateOf(!(vm.parentalMode && vm.pinEnabled)) }
+    var showUnlockDialog by remember { mutableStateOf(vm.parentalMode && vm.pinEnabled) }
 
     Scaffold(
         topBar = {
@@ -72,207 +87,297 @@ fun SettingsScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = { vm.save() }) {
-                        Text(stringResource(R.string.btn_save), fontWeight = FontWeight.Bold)
+                    if (isUnlocked) {
+                        TextButton(onClick = { vm.save() }) {
+                            Text(stringResource(R.string.btn_save), fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            // --- Quota en temps ---
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.time_quota_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+        if (isUnlocked) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(padding)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // --- Quota en temps ---
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(stringResource(R.string.time_quota_toggle))
-                        Switch(checked = vm.timeEnabled, onCheckedChange = { vm.timeEnabled = it })
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Timer, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.time_quota_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(stringResource(R.string.time_quota_toggle))
+                            Switch(checked = vm.timeEnabled, onCheckedChange = { vm.timeEnabled = it })
+                        }
+                        if (vm.timeEnabled) {
+                            Text(stringResource(R.string.time_quota_max, vm.timeLimitMin))
+                            Slider(
+                                value = vm.timeLimitMin.toFloat(),
+                                onValueChange = { vm.timeLimitMin = (Math.round(it / 5f) * 5).coerceIn(5, 120) },
+                                valueRange = 5f..120f,
+                                steps = 22
+                            )
+                        }
                     }
-                    if (vm.timeEnabled) {
-                        Text(stringResource(R.string.time_quota_max, vm.timeLimitMin))
+                }
+
+                // --- Plages horaires ---
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.schedule_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(stringResource(R.string.schedule_toggle))
+                            Switch(checked = vm.scheduleEnabled, onCheckedChange = { vm.scheduleEnabled = it })
+                        }
+                        if (vm.scheduleEnabled) {
+                            vm.scheduleRules.forEachIndexed { idx, rule ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        rule.label.ifEmpty {
+                                            stringResource(R.string.schedule_from_to, rule.startHour, rule.endHour)
+                                        }
+                                    )
+                                    IconButton(onClick = {
+                                        vm.scheduleRules = vm.scheduleRules.toMutableList().also { it.removeAt(idx) }
+                                    }) {
+                                        Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_delete))
+                                    }
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { showAddSchedule = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null)
+                                Spacer(Modifier.width(4.dp))
+                                Text(stringResource(R.string.btn_add_schedule))
+                            }
+                        }
+                    }
+                }
+
+                // --- Heure de reset ---
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.reset_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+                        Text(stringResource(R.string.reset_hour_label, vm.resetHour))
                         Slider(
-                            value = vm.timeLimitMin.toFloat(),
-                            onValueChange = { vm.timeLimitMin = (Math.round(it / 5f) * 5).coerceIn(5, 120) },
-                            valueRange = 5f..120f,
+                            value = vm.resetHour.toFloat(),
+                            onValueChange = { vm.resetHour = it.toInt() },
+                            valueRange = 0f..23f,
                             steps = 22
+                        )
+                        Text(
+                            stringResource(R.string.reset_explanation, vm.resetHour),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-            }
 
-            // --- Plages horaires ---
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.schedule_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                // --- Exception messagerie ---
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(stringResource(R.string.schedule_toggle))
-                        Switch(checked = vm.scheduleEnabled, onCheckedChange = { vm.scheduleEnabled = it })
-                    }
-                    if (vm.scheduleEnabled) {
-                        vm.scheduleRules.forEachIndexed { idx, rule ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.messaging_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.messaging_toggle))
                                 Text(
-                                    rule.label.ifEmpty {
-                                        stringResource(R.string.schedule_from_to, rule.startHour, rule.endHour)
-                                    }
+                                    stringResource(R.string.messaging_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                IconButton(onClick = {
-                                    vm.scheduleRules = vm.scheduleRules.toMutableList().also { it.removeAt(idx) }
-                                }) {
-                                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.cd_delete))
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Switch(checked = vm.messagingException, onCheckedChange = { vm.messagingException = it })
+                        }
+                    }
+                }
+
+                // --- Mode Parental ---
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.parental_mode_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.parental_mode_toggle))
+                                Text(
+                                    stringResource(R.string.parental_mode_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Switch(
+                                checked = vm.parentalMode,
+                                onCheckedChange = { enabling ->
+                                    if (enabling) {
+                                        vm.setParentalModeEnabled(true)
+                                        if (!vm.pinEnabled) showPinSetupDialog = true
+                                    } else {
+                                        if (vm.pinEnabled) showPinVerifyForDisable = true
+                                        else vm.setParentalModeEnabled(false)
+                                    }
+                                }
+                            )
+                        }
+
+                        if (vm.parentalMode && !vm.pinEnabled) {
+                            Text(
+                                stringResource(R.string.parental_no_pin_warning),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (vm.pinEnabled) {
+                                TextButton(onClick = { showPinSetupDialog = true }) {
+                                    Icon(Icons.Default.Edit, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(stringResource(R.string.parental_pin_change))
+                                }
+                                TextButton(onClick = { showPinVerifyDialog = true }) {
+                                    Icon(Icons.Default.LockOpen, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(stringResource(R.string.parental_pin_remove))
+                                }
+                            } else {
+                                TextButton(onClick = { showPinSetupDialog = true }) {
+                                    Icon(Icons.Default.Lock, contentDescription = null)
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(stringResource(R.string.parental_pin_set))
                                 }
                             }
                         }
-                        OutlinedButton(
-                            onClick = { showAddSchedule = true },
+
+                        HorizontalDivider()
+
+                        TextButton(
+                            onClick = { showProtectionGuide = true },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null)
+                            Icon(Icons.Default.Info, contentDescription = null)
                             Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.btn_add_schedule))
+                            Text(stringResource(R.string.parental_guide_btn))
                         }
                     }
-                }
-            }
-
-            // --- Heure de reset ---
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Refresh, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.reset_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    }
-                    Text(stringResource(R.string.reset_hour_label, vm.resetHour))
-                    Slider(
-                        value = vm.resetHour.toFloat(),
-                        onValueChange = { vm.resetHour = it.toInt() },
-                        valueRange = 0f..23f,
-                        steps = 22
-                    )
-                    Text(
-                        stringResource(R.string.reset_explanation, vm.resetHour),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // --- Exception messagerie ---
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Chat, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.messaging_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(stringResource(R.string.messaging_toggle))
-                            Text(
-                                stringResource(R.string.messaging_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Spacer(Modifier.width(8.dp))
-                        Switch(checked = vm.messagingException, onCheckedChange = { vm.messagingException = it })
-                    }
-                }
-            }
-
-            // --- PIN ---
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(R.string.pin_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(stringResource(R.string.pin_toggle_label))
-                            Text(
-                                stringResource(R.string.pin_toggle_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = vm.pinEnabled,
-                            onCheckedChange = {
-                                if (it) showPinDialog = true
-                                else vm.setPin("")
-                            }
-                        )
-                    }
-                    if (vm.pinEnabled) {
-                        TextButton(onClick = { showPinDialog = true }) {
-                            Text(stringResource(R.string.pin_change))
-                        }
-                    }
-                    HorizontalDivider()
-                    Text(
-                        stringResource(R.string.pin_delay_info),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
     }
 
-    if (showPinDialog) {
+    // Unlock settings on entry (parental mode guard)
+    if (showUnlockDialog) {
+        PinUnlockDialog(
+            title = stringResource(R.string.pin_unlock_title),
+            message = stringResource(R.string.pin_unlock_desc),
+            onDismiss = {
+                showUnlockDialog = false
+                onBack()
+            },
+            onUnlocked = {
+                isUnlocked = true
+                showUnlockDialog = false
+            },
+            onVerify = { pin -> vm.verifyPin(pin) }
+        )
+    }
+
+    // Verify PIN to disable parental mode
+    if (showPinVerifyForDisable) {
+        PinUnlockDialog(
+            title = stringResource(R.string.pin_unlock_title),
+            message = stringResource(R.string.parental_pin_verify_disable),
+            onDismiss = { showPinVerifyForDisable = false },
+            onUnlocked = {
+                vm.setParentalModeEnabled(false)
+                showPinVerifyForDisable = false
+            },
+            onVerify = { pin -> vm.verifyPin(pin) }
+        )
+    }
+
+    // Verify PIN to remove it entirely
+    if (showPinVerifyDialog) {
+        PinUnlockDialog(
+            title = stringResource(R.string.pin_unlock_title),
+            message = stringResource(R.string.parental_pin_verify_remove),
+            onDismiss = { showPinVerifyDialog = false },
+            onUnlocked = {
+                vm.setPin("")
+                if (vm.parentalMode) vm.setParentalModeEnabled(false)
+                showPinVerifyDialog = false
+            },
+            onVerify = { pin -> vm.verifyPin(pin) }
+        )
+    }
+
+    // Set / change PIN
+    if (showPinSetupDialog) {
         PinDialog(
-            onDismiss = { showPinDialog = false },
+            onDismiss = {
+                if (vm.parentalMode && !vm.pinEnabled) vm.setParentalModeEnabled(false)
+                showPinSetupDialog = false
+            },
             onConfirm = { pin ->
                 vm.setPin(pin)
-                showPinDialog = false
+                showPinSetupDialog = false
             }
         )
     }
@@ -286,7 +391,62 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showProtectionGuide) {
+        ProtectionGuideDialog(onDismiss = { showProtectionGuide = false })
+    }
 }
+
+// ---- PIN unlock dialog (verify existing PIN) ----
+
+@Composable
+fun PinUnlockDialog(
+    title: String,
+    message: String,
+    onDismiss: () -> Unit,
+    onUnlocked: () -> Unit,
+    onVerify: (String) -> Boolean
+) {
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(message, style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = {
+                        pin = it.filter { c -> c.isDigit() }.take(6)
+                        error = false
+                    },
+                    label = { Text(stringResource(R.string.pin_field_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    visualTransformation = PasswordVisualTransformation(),
+                    isError = error,
+                    supportingText = { if (error) Text(stringResource(R.string.pin_unlock_error)) },
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (onVerify(pin)) onUnlocked()
+                    else { error = true; pin = "" }
+                },
+                enabled = pin.length >= 4
+            ) { Text(stringResource(R.string.btn_validate)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.pin_unlock_cancel)) }
+        }
+    )
+}
+
+// ---- PIN setup dialog (set / change PIN) ----
 
 @Composable
 fun PinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
@@ -330,6 +490,53 @@ fun PinDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
         }
     )
 }
+
+// ---- Family Link / data protection guide ----
+
+@Composable
+fun ProtectionGuideDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.FamilyRestroom, contentDescription = null) },
+        title = { Text(stringResource(R.string.protection_guide_title)) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    stringResource(R.string.protection_guide_intro),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                HorizontalDivider()
+                Text(
+                    stringResource(R.string.protection_guide_family_link_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    stringResource(R.string.protection_guide_family_link_body),
+                    style = MaterialTheme.typography.bodySmall
+                )
+                HorizontalDivider()
+                Text(
+                    stringResource(R.string.protection_guide_wellbeing_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    stringResource(R.string.protection_guide_wellbeing_body),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) { Text(stringResource(R.string.protection_guide_close)) }
+        }
+    )
+}
+
+// ---- Add schedule dialog ----
 
 @Composable
 fun AddScheduleDialog(onDismiss: () -> Unit, onConfirm: (ScheduleRule) -> Unit) {

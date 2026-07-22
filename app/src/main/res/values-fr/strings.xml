@@ -85,9 +85,6 @@
     <string name="app_tiktok_alt">TikTok (alt.)</string>
     <string name="app_facebook">Facebook Reels</string>
     <string name="app_snapchat">Snapchat Spotlight</string>
-    <string name="app_pinterest">Pinterest</string>
-    <string name="app_twitter">X / Twitter</string>
-    <string name="app_x">X</string>
 
     <!-- Paramètres -->
     <string name="settings_title">Paramètres</string>
@@ -108,16 +105,43 @@
     <string name="messaging_title">Messagerie</string>
     <string name="messaging_toggle">Autoriser les reels en DM</string>
     <string name="messaging_desc">Les reels reçus dans les messages privés (Instagram DM, Messenger, Snapchat) ne sont pas bloqués.</string>
-    <string name="pin_title">Anti-contournement</string>
-    <string name="pin_toggle_label">PIN de protection</string>
-    <string name="pin_toggle_desc">Exiger un PIN pour désactiver ReelGuard</string>
-    <string name="pin_change">Modifier le PIN</string>
-    <string name="pin_delay_info">Un délai de 30 secondes s\'applique avant toute désactivation.</string>
     <string name="pin_dialog_title">Définir un PIN</string>
     <string name="pin_field_label">PIN (4 à 6 chiffres)</string>
     <string name="pin_confirm_label">Confirmer le PIN</string>
     <string name="pin_error">Les PIN ne correspondent pas</string>
     <string name="btn_validate">Valider</string>
+
+    <!-- Mode Parental -->
+    <string name="parental_mode_title">Mode Parental</string>
+    <string name="parental_mode_toggle">Activer le Mode Parental</string>
+    <string name="parental_mode_desc">Exige un PIN pour accéder aux paramètres. Empêche votre enfant de modifier la configuration.</string>
+    <string name="parental_no_pin_warning">⚠️ Aucun PIN défini — appuyez ci-dessous pour en ajouter un et verrouiller les paramètres.</string>
+    <string name="parental_pin_set">Définir un PIN</string>
+    <string name="parental_pin_change">Modifier le PIN</string>
+    <string name="parental_pin_remove">Supprimer le PIN</string>
+    <string name="parental_pin_verify_disable">Entrez votre PIN pour désactiver le Mode Parental.</string>
+    <string name="parental_pin_verify_remove">Entrez votre PIN actuel pour le supprimer.</string>
+    <string name="parental_guide_btn">Comment empêcher la suppression des données ?</string>
+    <string name="parental_locked_hint">Mode Parental actif — allez dans Paramètres pour modifier.</string>
+
+    <!-- Dialog déverrouillage PIN -->
+    <string name="pin_unlock_title">Paramètres parentaux</string>
+    <string name="pin_unlock_desc">Entrez votre PIN pour accéder aux paramètres.</string>
+    <string name="pin_unlock_error">PIN incorrect</string>
+    <string name="pin_unlock_cancel">Retour</string>
+
+    <!-- Guide de protection des données -->
+    <string name="protection_guide_title">Empêcher la suppression des données</string>
+    <string name="protection_guide_intro">Pour protéger pleinement ReelGuard, combinez le PIN ci-dessus avec l\'une de ces méthodes pour empêcher votre enfant de supprimer les données de l\'app ou de la désinstaller.</string>
+    <string name="protection_guide_family_link_title">Option 1 — Google Family Link (recommandé)</string>
+    <string name="protection_guide_family_link_body">1. Installez Family Link sur votre téléphone (parent).\n2. Créez un compte Google supervisé pour votre enfant ou liez le sien.\n3. Connectez-vous avec ce compte sur le téléphone de votre enfant.\n4. Dans Family Link : profil de l\'enfant → Applications → ReelGuard → bloquer la désinstallation.\n\nFamily Link permet aussi de valider les téléchargements d\'apps, de fixer un temps d\'écran quotidien, et de voir la localisation de votre enfant.</string>
+    <string name="protection_guide_wellbeing_title">Option 2 — Bien-être numérique (basique)</string>
+    <string name="protection_guide_wellbeing_body">Sur le téléphone de l\'enfant : Paramètres → Bien-être numérique et contrôle parental → Contrôle parental. C\'est une option plus légère — elle restreint certains usages mais ne prévient pas la suppression des données de l\'app.</string>
+    <string name="protection_guide_close">Compris</string>
+
+    <!-- Indicateur parental sur le tableau de bord -->
+    <string name="cd_parental_active">Mode Parental actif</string>
+
     <string name="schedule_dialog_title">Ajouter une plage horaire</string>
     <string name="schedule_from_to">De %1$02dh à %2$02dh</string>
     <string name="schedule_start_hour">Début : %1$02dh</string>

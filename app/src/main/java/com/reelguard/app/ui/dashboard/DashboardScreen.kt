@@ -53,6 +53,14 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    if (state.isParentalModeEnabled) {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = stringResource(R.string.cd_parental_active),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = androidx.compose.ui.Modifier.padding(end = 4.dp)
+                        )
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.cd_settings))
                     }
@@ -127,7 +135,8 @@ fun DashboardScreen(
             // Apps activées
             AppToggleCard(
                 appStates = state.appStates,
-                onToggle = { pkg, enabled -> viewModel.toggleApp(pkg, enabled) }
+                onToggle = { pkg, enabled -> viewModel.toggleApp(pkg, enabled) },
+                isLocked = state.isParentalModeEnabled
             )
 
             // Statut global
@@ -316,7 +325,8 @@ fun QuotaProgressRow(label: String, used: Int, limit: Int, unit: String) {
 @Composable
 fun AppToggleCard(
     appStates: Map<String, Boolean>,
-    onToggle: (String, Boolean) -> Unit
+    onToggle: (String, Boolean) -> Unit,
+    isLocked: Boolean = false
 ) {
     val appLabels = mapOf(
         "com.instagram.android" to stringResource(R.string.app_instagram),
@@ -324,10 +334,7 @@ fun AppToggleCard(
         "com.zhiliaoapp.musically" to stringResource(R.string.app_tiktok),
         "com.ss.android.ugc.trill" to stringResource(R.string.app_tiktok_alt),
         "com.facebook.katana" to stringResource(R.string.app_facebook),
-        "com.snapchat.android" to stringResource(R.string.app_snapchat),
-        "com.pinterest" to stringResource(R.string.app_pinterest),
-        "com.twitter.android" to stringResource(R.string.app_twitter),
-        "com.X.android" to stringResource(R.string.app_x)
+        "com.snapchat.android" to stringResource(R.string.app_snapchat)
     )
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -335,11 +342,32 @@ fun AppToggleCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(
-                stringResource(R.string.apps_blocked_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    stringResource(R.string.apps_blocked_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                if (isLocked) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(end = 4.dp)
+                    )
+                }
+            }
+            if (isLocked) {
+                Text(
+                    stringResource(R.string.parental_locked_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Spacer(Modifier.height(4.dp))
 
             appStates.forEach { (pkg, enabled) ->
@@ -354,7 +382,8 @@ fun AppToggleCard(
                     Text(label, style = MaterialTheme.typography.bodyMedium)
                     Switch(
                         checked = enabled,
-                        onCheckedChange = { onToggle(pkg, it) }
+                        onCheckedChange = { if (!isLocked) onToggle(pkg, it) },
+                        enabled = !isLocked
                     )
                 }
             }

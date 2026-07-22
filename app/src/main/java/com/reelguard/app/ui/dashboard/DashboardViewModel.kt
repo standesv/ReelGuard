@@ -22,7 +22,8 @@ data class DashboardState(
     val focusTimeRemaining: String = "",
     val streakDays: Int = 0,
     val timeUsedTodayMin: Float = 0f,
-    val appStates: Map<String, Boolean> = emptyMap()
+    val appStates: Map<String, Boolean> = emptyMap(),
+    val isParentalModeEnabled: Boolean = false
 )
 
 class DashboardViewModel(application: Application) : AndroidViewModel(application) {
@@ -57,7 +58,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             timeUsedTodayMin = quotaManager.getTimeUsedMs() / 60000f,
             appStates = ReelBlockerAccessibilityService.TARGET_PACKAGES.associateWith {
                 quotaManager.isBlockingEnabledForApp(it)
-            }
+            },
+            isParentalModeEnabled = quotaManager.isParentalModeEnabled()
         )
     }
 

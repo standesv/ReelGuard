@@ -85,9 +85,6 @@
     <string name="app_tiktok_alt">TikTok (alt.)</string>
     <string name="app_facebook">Facebook Reels</string>
     <string name="app_snapchat">Snapchat Spotlight</string>
-    <string name="app_pinterest">Pinterest</string>
-    <string name="app_twitter">X / Twitter</string>
-    <string name="app_x">X</string>
 
     <!-- Einstellungen -->
     <string name="settings_title">Einstellungen</string>
@@ -108,16 +105,37 @@
     <string name="messaging_title">Nachrichten</string>
     <string name="messaging_toggle">Reels in Direktnachrichten erlauben</string>
     <string name="messaging_desc">In Direktnachrichten empfangene Reels (Instagram DM, Messenger, Snapchat) werden nicht blockiert.</string>
-    <string name="pin_title">Umgehungsschutz</string>
-    <string name="pin_toggle_label">PIN-Schutz</string>
-    <string name="pin_toggle_desc">PIN zum Deaktivieren von ReelGuard erforderlich</string>
-    <string name="pin_change">PIN ändern</string>
-    <string name="pin_delay_info">Vor jeder Deaktivierung gilt eine Verzögerung von 30 Sekunden.</string>
     <string name="pin_dialog_title">PIN festlegen</string>
     <string name="pin_field_label">PIN (4–6 Ziffern)</string>
     <string name="pin_confirm_label">PIN bestätigen</string>
     <string name="pin_error">PINs stimmen nicht überein</string>
     <string name="btn_validate">Bestätigen</string>
+
+    <!-- Elternmodus -->
+    <string name="parental_mode_title">Elternmodus</string>
+    <string name="parental_mode_toggle">Elternmodus aktivieren</string>
+    <string name="parental_mode_desc">Erfordert eine PIN für den Zugriff auf die Einstellungen. Verhindert, dass Ihr Kind die Konfiguration ändert.</string>
+    <string name="parental_no_pin_warning">⚠️ Keine PIN festgelegt — tippen Sie unten, um eine hinzuzufügen und die Einstellungen zu sperren.</string>
+    <string name="parental_pin_set">PIN festlegen</string>
+    <string name="parental_pin_change">PIN ändern</string>
+    <string name="parental_pin_remove">PIN entfernen</string>
+    <string name="parental_pin_verify_disable">Geben Sie Ihre PIN ein, um den Elternmodus zu deaktivieren.</string>
+    <string name="parental_pin_verify_remove">Geben Sie Ihre aktuelle PIN ein, um sie zu entfernen.</string>
+    <string name="parental_guide_btn">Wie verhindert man das Löschen von Daten?</string>
+    <string name="parental_locked_hint">Elternmodus aktiv — gehen Sie zu Einstellungen, um Änderungen vorzunehmen.</string>
+    <string name="pin_unlock_title">Elterneinstellungen</string>
+    <string name="pin_unlock_desc">Geben Sie Ihre PIN ein, um auf die Einstellungen zuzugreifen.</string>
+    <string name="pin_unlock_error">Falsche PIN</string>
+    <string name="pin_unlock_cancel">Zurück</string>
+    <string name="protection_guide_title">Datenlöschung verhindern</string>
+    <string name="protection_guide_intro">Um ReelGuard vollständig zu schützen, kombinieren Sie die obige PIN mit einer dieser Methoden, um zu verhindern, dass Ihr Kind die App-Daten löscht oder deinstalliert.</string>
+    <string name="protection_guide_family_link_title">Option 1 — Google Family Link (empfohlen)</string>
+    <string name="protection_guide_family_link_body">1. Installieren Sie Family Link auf Ihrem Telefon (Elternteil).\n2. Erstellen Sie ein beaufsichtigtes Google-Konto für Ihr Kind oder verknüpfen Sie das bestehende.\n3. Melden Sie sich mit diesem Konto auf dem Telefon Ihres Kindes an.\n4. In Family Link: Kinderprofil → Apps → ReelGuard → Deinstallation blockieren.\n\nFamily Link ermöglicht auch die Genehmigung von App-Downloads, die Festlegung täglicher Bildschirmzeitlimits und die Standortanzeige Ihres Kindes.</string>
+    <string name="protection_guide_wellbeing_title">Option 2 — Digitales Wohlbefinden (einfach)</string>
+    <string name="protection_guide_wellbeing_body">Auf dem Telefon des Kindes: Einstellungen → Digitales Wohlbefinden &amp; Kindersicherung → Kindersicherung. Dies ist eine einfachere Option — sie schränkt einige Einstellungen ein, verhindert aber keine Datenlöschung.</string>
+    <string name="protection_guide_close">Verstanden</string>
+    <string name="cd_parental_active">Elternmodus aktiv</string>
+
     <string name="schedule_dialog_title">Zeitfenster hinzufügen</string>
     <string name="schedule_from_to">Von %1$02d Uhr bis %2$02d Uhr</string>
     <string name="schedule_start_hour">Startzeit: %1$02d Uhr</string>

@@ -62,10 +62,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.zhiliaoapp.musically",
             "com.ss.android.ugc.trill",
             "com.facebook.katana",
-            "com.snapchat.android",
-            "com.pinterest",
-            "com.twitter.android",
-            "com.X.android"
+            "com.snapchat.android"
         )
 
         private val IGNORE_PACKAGES = setOf(

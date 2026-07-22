@@ -71,6 +71,9 @@ class QuotaManager private constructor(private val context: Context) {
 
         // Exception messagerie
         const val KEY_MESSAGING_EXCEPTION = "messaging_exception_enabled"
+
+        // Mode Parental
+        const val KEY_PARENTAL_MODE = "parental_mode_enabled"
     }
 
     internal val prefs: SharedPreferences =
@@ -325,6 +328,10 @@ class QuotaManager private constructor(private val context: Context) {
         prefs.getBoolean(KEY_MESSAGING_EXCEPTION, true)
     fun setMessagingExceptionEnabled(enabled: Boolean) =
         prefs.edit { putBoolean(KEY_MESSAGING_EXCEPTION, enabled) }
+
+    // Mode Parental
+    fun isParentalModeEnabled(): Boolean = prefs.getBoolean(KEY_PARENTAL_MODE, false)
+    fun setParentalModeEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_PARENTAL_MODE, enabled) }
 
     fun getCurrentQuotaStatus(): QuotaStatus {
         checkAndResetDailyQuotas()
