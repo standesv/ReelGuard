@@ -662,19 +662,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 showToastAndExit(getString(R.string.overlay_focus_active, quotaManager.getFocusEndTimeDisplay()))
             }
             status.scheduledBlocked -> {
-                // Toast immédiat : garantit que l'utilisateur voit un message même si l'overlay
-                // échoue silencieusement (exception WindowManager sur certains appareils).
-                Toast.makeText(
-                    applicationContext,
-                    getString(R.string.overlay_schedule_blocked, status.scheduleMessage),
-                    Toast.LENGTH_SHORT
-                ).show()
-                // Overlay visuel par-dessus les Reels (2s).
-                overlayManager.showBlockOverlay(status)
-                // scheduleAutoExit pose blockCooldownUntil=+3s après les 2s d'overlay :
-                // après la sortie, la détection refonctionne et rebloque immédiatement.
-                // Total avant re-tentative efficace : ~5s (2s overlay + 3s cooldown).
-                scheduleAutoExit(2000)
+                // Plage horaire : AUCUN message, AUCUN overlay. Sortie immédiate et silencieuse.
+                // Si l'utilisateur retente d'accéder aux Reels, enterReelsSection → checkAndBlock
+                // détecte la plage toujours active → re-sortie immédiate.
+                exitSilently()
             }
             pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill") ->
                 showToastAndExit(getString(R.string.toast_tiktok_blocked))
@@ -693,6 +684,23 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // ────────────────────────────────────────────────────────────────────────────
     // UTILITAIRES SYSTÈME
     // ────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Sortie silencieuse : identique à showToastAndExit mais SANS toast ni overlay.
+     * Utilisé pour les plages horaires — l'utilisateur ne doit voir aucun message,
+     * l'app se ferme simplement. Toute nouvelle tentative d'accès sera re-bloquée
+     * immédiatement par checkAndBlock (plage toujours active).
+     */
+    private fun exitSilently() {
+        // Cooldown court (1,2s) : juste assez pour absorber la séquence BACK→HOME (250ms)
+        // et les events accessibility bufferisés, mais assez court pour que toute vraie
+        // tentative de retour de l'utilisateur (rouvrir l'app + naviguer) soit re-bloquée
+        // immédiatement. Un cooldown de 3s laisserait une fenêtre où l'utilisateur voit un reel.
+        blockCooldownUntil = System.currentTimeMillis() + 1200L
+        exitReelsSection()
+        performGlobalAction(GLOBAL_ACTION_BACK)
+        handler.postDelayed({ performGlobalAction(GLOBAL_ACTION_HOME) }, 250)
+    }
 
     private fun showToastAndExit(message: String) {
         blockCooldownUntil = System.currentTimeMillis() + 3000L
