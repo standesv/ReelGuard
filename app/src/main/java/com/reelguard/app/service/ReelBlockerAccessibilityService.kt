@@ -114,8 +114,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     private val backReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            overlayManager.hideOverlay()
-            cancelAutoExit()
+            // exitReelsSection() : stoppe le timer, annule l'auto-exit, cache l'overlay.
+            // Sans cet appel, isInReelsSection restait true et le timer continuait à tourner
+            // même après que l'utilisateur appuie sur le bouton "← Retour" de l'overlay.
+            exitReelsSection()
             performGlobalAction(GLOBAL_ACTION_HOME)
         }
     }
@@ -627,6 +629,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     private fun onLeaveTargetApp() {
         exitReelsSection()
         cancelAutoExit()
+        // Arrêter TOUS les pollers quand l'utilisateur quitte une app cible.
+        // Sans ça, le poller Instagram/Facebook/Snapchat continue de tourner en arrière-plan.
+        // rootInActiveWindow peut encore renvoyer le package de l'app même quand elle est réduite,
+        // ce qui amenait le poller à rappeler enterReelsSection() → timer décompté hors session.
+        stopInstagramPoller()
+        stopFacebookPoller()
+        stopSnapchatPoller()
         currentPackage = ""
     }
 
@@ -653,13 +662,19 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 showToastAndExit(getString(R.string.overlay_focus_active, quotaManager.getFocusEndTimeDisplay()))
             }
             status.scheduledBlocked -> {
-                // Overlay persistant pour les plages horaires.
-                // scheduleAutoExitScheduled (sans blockCooldownUntil) : après l'auto-exit (2s),
-                // l'utilisateur peut tenter de revenir, mais enterReelsSection → checkAndBlock
-                // détectera immédiatement la plage toujours active et rebloquera avec l'overlay.
-                // Résultat : blocage continu et ininterrompu pendant toute la plage horaire.
+                // Toast immédiat : garantit que l'utilisateur voit un message même si l'overlay
+                // échoue silencieusement (exception WindowManager sur certains appareils).
+                Toast.makeText(
+                    applicationContext,
+                    getString(R.string.overlay_schedule_blocked, status.scheduleMessage),
+                    Toast.LENGTH_SHORT
+                ).show()
+                // Overlay visuel par-dessus les Reels (2s).
                 overlayManager.showBlockOverlay(status)
-                scheduleAutoExitScheduled()
+                // scheduleAutoExit pose blockCooldownUntil=+3s après les 2s d'overlay :
+                // après la sortie, la détection refonctionne et rebloque immédiatement.
+                // Total avant re-tentative efficace : ~5s (2s overlay + 3s cooldown).
+                scheduleAutoExit(2000)
             }
             pkg in setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill") ->
                 showToastAndExit(getString(R.string.toast_tiktok_blocked))
@@ -689,26 +704,6 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         // Avec BACK : le plein écran est fermé avant HOME → pas de PiP.
         performGlobalAction(GLOBAL_ACTION_BACK)
         handler.postDelayed({ performGlobalAction(GLOBAL_ACTION_HOME) }, 250)
-    }
-
-    /**
-     * Auto-exit spécifique aux plages horaires bloquées.
-     * Contrairement à scheduleAutoExit(), ne positionne PAS blockCooldownUntil :
-     * l'absence de cooldown permet à enterReelsSection() de se déclencher immédiatement
-     * lors de la prochaine tentative d'accès, garantissant un overlay instantané
-     * et donc un blocage continu pendant toute la durée de la plage horaire.
-     */
-    private fun scheduleAutoExitScheduled() {
-        cancelAutoExit()
-        val runnable = Runnable {
-            exitReelsSection()
-            val current = rootInActiveWindow?.packageName?.toString()
-            if (current != null && current in TARGET_PACKAGES) {
-                performGlobalAction(GLOBAL_ACTION_HOME)
-            }
-        }
-        autoExitRunnable = runnable
-        handler.postDelayed(runnable, 2000L)
     }
 
     private fun scheduleAutoExit(delayMs: Long) {
