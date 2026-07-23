@@ -65,10 +65,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             "com.snapchat.android"
         )
 
-        private val IGNORE_PACKAGES = setOf(
+        // Overlays système qui NE signifient PAS que l'utilisateur a quitté l'app :
+        // barre système, clavier… (ex : ouvrir le clavier pour commenter un Reel).
+        // ⚠️ Les LAUNCHERS ne sont PAS ici : basculer vers le launcher = l'utilisateur
+        // a quitté l'app → doit déclencher la sortie de session (fin du comptage du temps).
+        private val OVERLAY_PACKAGES = setOf(
             "android", "com.android.systemui",
-            "com.android.launcher3",
-            "com.google.android.apps.nexuslauncher",
             "com.android.inputmethod.latin",
             "com.google.android.inputmethod.latin",
             "com.samsung.android.inputmethod"
@@ -122,6 +124,14 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         }
     }
 
+    // Écran éteint : l'utilisateur a verrouillé le téléphone → fin de session immédiate.
+    // Empêche le timer de continuer à compter pendant que l'écran est éteint.
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            onLeaveTargetApp()
+        }
+    }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         quotaManager = QuotaManager.getInstance(applicationContext)
@@ -134,7 +144,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                     AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-            packageNames = TARGET_PACKAGES.toTypedArray()
+            // packageNames = null → on écoute TOUTES les apps.
+            // Indispensable pour détecter quand l'utilisateur QUITTE une app cible
+            // (bascule vers le launcher ou une autre app) : sans ça, le service ne reçoit
+            // aucun event hors apps cibles → la session Reels ne se termine jamais et le
+            // timer continue de compter en arrière-plan. Les events des apps non-cibles
+            // sont filtrés immédiatement et à moindre coût dans onAccessibilityEvent.
+            packageNames = null
             notificationTimeout = 100
         }
         serviceInfo = info
@@ -146,14 +162,38 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(backReceiver, filter)
         }
+
+        // ACTION_SCREEN_OFF n'est diffusé qu'aux receivers enregistrés dynamiquement.
+        registerReceiver(screenReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val event = event ?: return
         val pkg = event.packageName?.toString() ?: return
 
-        if (pkg == packageName || pkg in IGNORE_PACKAGES || pkg.startsWith("com.android.")) return
-        if (pkg !in TARGET_PACKAGES) { onLeaveTargetApp(); return }
+        if (pkg == packageName) return
+
+        // Overlays système (clavier, barre système) : ne signifient PAS une sortie d'app.
+        // Ex : ouvrir le clavier pour commenter un Reel ne doit pas terminer la session.
+        if (pkg in OVERLAY_PACKAGES) return
+
+        // App NON-cible au premier plan (launcher, autre app…).
+        // Sur un changement de FENÊTRE confirmé → l'utilisateur a quitté l'app cible :
+        // on termine la session Reels (arrêt du timer + flush du temps réellement passé).
+        // On garde le filtre sur TYPE_WINDOW_STATE_CHANGED pour ignorer le bruit
+        // (content-changed d'autres apps en arrière-plan) et n'agir que si une session
+        // ou un poller est actif (évite un traitement inutile à chaque changement système).
+        if (pkg !in TARGET_PACKAGES) {
+            if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+                && (isInReelsSection || currentPackage.isNotEmpty()
+                    || instagramPollerRunnable != null
+                    || facebookPollerRunnable != null
+                    || snapchatPollerRunnable != null)) {
+                onLeaveTargetApp()
+            }
+            return
+        }
+
         if (!quotaManager.isBlockingEnabledForApp(pkg)) return
 
         // Instagram : poller (entrée) + clic (entrée/sortie nav) + window-change (sortie DMs).
@@ -749,5 +789,6 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         stopFacebookPoller()
         stopSnapchatPoller()
         try { unregisterReceiver(backReceiver) } catch (_: Exception) {}
+        try { unregisterReceiver(screenReceiver) } catch (_: Exception) {}
     }
 }
