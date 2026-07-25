@@ -12,8 +12,8 @@ android {
         applicationId = "com.reelguard.app"
         minSdk = 29
         targetSdk = 34
-        versionCode = 42
-        versionName = "3.42"
+        versionCode = 43
+        versionName = "3.43"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

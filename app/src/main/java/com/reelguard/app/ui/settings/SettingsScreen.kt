@@ -72,6 +72,7 @@ fun SettingsScreen(
     var showPinVerifyForDisable by remember { mutableStateOf(false) }
     var showAddSchedule by remember { mutableStateOf(false) }
     var showProtectionGuide by remember { mutableStateOf(false) }
+    var showPrivacy by remember { mutableStateOf(false) }
 
     // If parental mode + PIN are both active, require PIN to enter settings
     var isUnlocked by remember { mutableStateOf(!(vm.parentalMode && vm.pinEnabled)) }
@@ -318,6 +319,32 @@ fun SettingsScreen(
                         }
                     }
                 }
+
+                // --- Confidentialité & données ---
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.privacy_title), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        }
+                        Text(
+                            stringResource(R.string.privacy_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        OutlinedButton(
+                            onClick = { showPrivacy = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Description, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text(stringResource(R.string.privacy_btn))
+                        }
+                    }
+                }
             }
         }
     }
@@ -395,6 +422,32 @@ fun SettingsScreen(
     if (showProtectionGuide) {
         ProtectionGuideDialog(onDismiss = { showProtectionGuide = false })
     }
+
+    if (showPrivacy) {
+        PrivacyPolicyDialog(onDismiss = { showPrivacy = false })
+    }
+}
+
+// ---- Privacy policy dialog ----
+
+@Composable
+fun PrivacyPolicyDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Shield, contentDescription = null) },
+        title = { Text(stringResource(R.string.privacy_title)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    stringResource(R.string.privacy_body),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) { Text(stringResource(R.string.protection_guide_close)) }
+        }
+    )
 }
 
 // ---- PIN unlock dialog (verify existing PIN) ----

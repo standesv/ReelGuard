@@ -7,8 +7,8 @@
 
     <!-- Onboarding - Willkommen -->
     <string name="onboarding_welcome_title">Willkommen bei ReelGuard</string>
-    <string name="onboarding_welcome_step1">ReelGuard blockiert Reels auf Instagram, YouTube Shorts, TikTok, Facebook, Snapchat und mehr.</string>
-    <string name="onboarding_welcome_step2">Lege ein tägliches Kontingent fest (Anzahl oder Dauer) und die App blockiert automatisch, wenn es erreicht ist.</string>
+    <string name="onboarding_welcome_step1">ReelGuard blockiert Reels und Shorts auf Instagram, YouTube, TikTok, Facebook und Snapchat.</string>
+    <string name="onboarding_welcome_step2">Lege ein tägliches Zeitlimit fest, blockiere Zeitfenster oder starte eine Fokus-Sitzung — die App blockiert Reels automatisch.</string>
     <string name="onboarding_welcome_step3">Alle deine Daten bleiben auf deinem Telefon — kein Server, kein Konto erforderlich.</string>
 
     <!-- Onboarding - Barrierefreiheit -->
@@ -18,6 +18,7 @@
     <string name="onboarding_accessibility_step3">Tippe auf „ReelGuard".</string>
     <string name="onboarding_accessibility_step4">Aktiviere den Schalter oben und bestätige mit „Zulassen".</string>
     <string name="onboarding_accessibility_note">⚠️ Auf Samsung: Einstellungen → Bedienungshilfen → Installierte Apps → ReelGuard. Auf Pixel: Einstellungen → Bedienungshilfen → ReelGuard.</string>
+    <string name="onboarding_accessibility_disclosure">🔒 ReelGuard nutzt den Bedienungshilfen-Dienst ausschließlich, um zu erkennen, wann ein Reels- oder Shorts-Feed in den ausgewählten Apps geöffnet ist, um ihn gemäß deinen Einstellungen zu blockieren. ReelGuard sammelt, speichert und teilt keine personenbezogenen Daten — nichts verlässt dein Telefon.</string>
     <string name="onboarding_accessibility_button">Bedienungshilfen öffnen</string>
 
     <!-- Onboarding - Einblendung -->
@@ -32,15 +33,15 @@
     <string name="onboarding_config_title">Kontingent konfigurieren</string>
     <string name="onboarding_config_step1">Öffne Einstellungen (⚙️-Symbol oben rechts im Dashboard).</string>
     <string name="onboarding_config_step2">Aktiviere „Zeitkontingent" und stelle es auf 15 Minuten ein — ein guter Ausgangspunkt.</string>
-    <string name="onboarding_config_step3">Oder aktiviere „Anzahlkontingent", wenn du lieber die Anzahl der Reels begrenzen möchtest.</string>
+    <string name="onboarding_config_step3">Füge „Blockierte Zeitfenster" hinzu, um Reels zu bestimmten Zeiten zu blockieren (z. B. nachts oder während der Arbeit).</string>
     <string name="onboarding_config_step4">Tippe auf „Speichern".</string>
-    <string name="onboarding_config_note">Du erhältst eine Warnung bei 80 % deines Kontingents. Du kannst diese Einstellungen jederzeit ändern.</string>
+    <string name="onboarding_config_note">Du wirst bei 80 % deines Zeitkontingents gewarnt. Du kannst diese Einstellungen jederzeit ändern.</string>
 
     <!-- Onboarding - Bereit -->
     <string name="onboarding_ready_title">Los geht\'s!</string>
     <string name="onboarding_ready_step1">ReelGuard überwacht jetzt deine Apps.</string>
-    <string name="onboarding_ready_step2">Das Dashboard zeigt deine heutige Nutzung.</string>
-    <string name="onboarding_ready_step3">Aktiviere den Fokusmodus, um Reels für eine bestimmte Dauer vollständig zu blockieren.</string>
+    <string name="onboarding_ready_step2">Das Dashboard zeigt deine heutige Reels-Zeit.</string>
+    <string name="onboarding_ready_step3">Aktiviere den Fokusmodus, um Reels für eine bestimmte Dauer vollständig zu blockieren, oder den Elternmodus, um die Einstellungen per PIN zu sperren.</string>
     <string name="onboarding_ready_note">Wenn die Blockierung nicht funktioniert, prüfe, ob beide Berechtigungen erteilt wurden (roter Banner = fehlende Berechtigung).</string>
 
     <!-- Onboarding-Navigation -->
@@ -135,6 +136,12 @@
     <string name="protection_guide_wellbeing_body">Auf dem Telefon des Kindes: Einstellungen → Digitales Wohlbefinden &amp; Kindersicherung → Kindersicherung. Dies ist eine einfachere Option — sie schränkt einige Einstellungen ein, verhindert aber keine Datenlöschung.</string>
     <string name="protection_guide_close">Verstanden</string>
     <string name="cd_parental_active">Elternmodus aktiv</string>
+
+    <!-- Datenschutz &amp; Daten -->
+    <string name="privacy_title">Datenschutz &amp; Daten</string>
+    <string name="privacy_desc">ReelGuard behält alles auf deinem Gerät. Erfahre, wie die App die Bedienungshilfen-Berechtigung nutzt und mit Werbung umgeht.</string>
+    <string name="privacy_btn">Datenschutzerklärung</string>
+    <string name="privacy_body">ReelGuard hilft dir, die Zeit auf Kurzvideo-Feeds (Reels, Shorts, Spotlight) zu reduzieren.\n\nDATENERFASSUNG\nReelGuard erfasst, überträgt oder verkauft keine personenbezogenen Daten. Deine Einstellungen und Nutzungsstatistiken (verbrachte Zeit, Serien) werden nur auf deinem Gerät gespeichert und verlassen es nie. Kein Konto, kein Server.\n\nBEDIENUNGSHILFEN-DIENST\nReelGuard nutzt den Bedienungshilfen-Dienst von Android ausschließlich, um auf deinem Gerät zu erkennen, wann ein Reels- oder Shorts-Feed in den von dir ausgewählten Apps angezeigt wird, um den Sperrbildschirm einzublenden. Er liest, protokolliert oder überträgt weder den Inhalt deines Bildschirms noch deine Nachrichten oder Tastatureingaben.\n\nWERBUNG\nReelGuard zeigt Banner-Werbung über Google AdMob. Zur Auslieferung von Werbung kann Google die Werbe-ID (AD ID) deines Geräts verwenden. Siehe Googles Richtlinie unter policies.google.com/technologies/ads. Du kannst deine Werbe-ID in den Android-Einstellungen zurücksetzen oder löschen.\n\nKINDER\nDer Elternmodus ist dafür gedacht, von einem Elternteil oder Erziehungsberechtigten auf dem Gerät eines Kindes eingerichtet zu werden. Die App erfasst keine personenbezogenen Daten.\n\nKONTAKT\nFragen? Schreib an standesv@gmail.com.</string>
 
     <string name="schedule_dialog_title">Zeitfenster hinzufügen</string>
     <string name="schedule_from_to">Von %1$02d Uhr bis %2$02d Uhr</string>

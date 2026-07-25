@@ -25,6 +25,7 @@ data class OnboardingPage(
     val title: String,
     val steps: List<String> = emptyList(),
     val note: String = "",
+    val disclosure: String = "",
     val actionLabel: String? = null,
     val action: ((android.content.Context) -> Unit)? = null
 )
@@ -54,6 +55,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 stringResource(R.string.onboarding_accessibility_step4)
             ),
             note = stringResource(R.string.onboarding_accessibility_note),
+            disclosure = stringResource(R.string.onboarding_accessibility_disclosure),
             actionLabel = stringResource(R.string.onboarding_accessibility_button),
             action = { ctx ->
                 ctx.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -167,6 +169,22 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                                 )
                             }
                         }
+                    }
+                }
+
+                // Divulgation d'usage (accessibilité) — mise en avant pour la conformité Play Store
+                if (p.disclosure.isNotEmpty()) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Text(
+                            p.disclosure,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(14.dp)
+                        )
                     }
                 }
 

@@ -7,8 +7,8 @@
 
     <!-- Onboarding - Bienvenue -->
     <string name="onboarding_welcome_title">Bienvenue sur ReelGuard</string>
-    <string name="onboarding_welcome_step1">ReelGuard bloque les Reels sur Instagram, YouTube Shorts, TikTok, Facebook, Snapchat et bien d\'autres.</string>
-    <string name="onboarding_welcome_step2">Définissez un quota quotidien (nombre ou durée) et l\'app bloque automatiquement quand il est atteint.</string>
+    <string name="onboarding_welcome_step1">ReelGuard bloque les Reels et Shorts sur Instagram, YouTube, TikTok, Facebook et Snapchat.</string>
+    <string name="onboarding_welcome_step2">Définissez une limite de temps quotidienne, bloquez des plages horaires, ou lancez une session Focus — l\'app bloque les Reels automatiquement.</string>
     <string name="onboarding_welcome_step3">Toutes vos données restent sur votre téléphone — pas de serveur, pas de compte requis.</string>
 
     <!-- Onboarding - Accessibilité -->
@@ -18,6 +18,7 @@
     <string name="onboarding_accessibility_step3">Appuyez sur « ReelGuard ».</string>
     <string name="onboarding_accessibility_step4">Activez l\'interrupteur en haut, puis confirmez en appuyant sur « Autoriser ».</string>
     <string name="onboarding_accessibility_note">⚠️ Sur Samsung : Paramètres → Accessibilité → Applications installées → ReelGuard. Sur Pixel : Paramètres → Accessibilité → ReelGuard.</string>
+    <string name="onboarding_accessibility_disclosure">🔒 ReelGuard utilise le service d\'accessibilité uniquement pour détecter l\'ouverture d\'un fil Reels ou Shorts dans les apps sélectionnées, afin de le bloquer selon vos réglages. ReelGuard ne collecte, ne stocke et ne partage aucune donnée personnelle — rien ne quitte votre téléphone.</string>
     <string name="onboarding_accessibility_button">Ouvrir les paramètres d\'accessibilité</string>
 
     <!-- Onboarding - Superposition -->
@@ -32,15 +33,15 @@
     <string name="onboarding_config_title">Configurez votre quota</string>
     <string name="onboarding_config_step1">Ouvrez les Paramètres (icône ⚙️ en haut à droite du tableau de bord).</string>
     <string name="onboarding_config_step2">Activez « Quota temps » et réglez-le sur 15 minutes — un bon point de départ.</string>
-    <string name="onboarding_config_step3">Ou activez « Quota nombre » si vous préférez limiter le nombre de Reels.</string>
+    <string name="onboarding_config_step3">Ajoutez des « Plages horaires bloquées » pour bloquer les Reels à certaines heures (ex : la nuit ou au travail).</string>
     <string name="onboarding_config_step4">Appuyez sur « Enregistrer ».</string>
-    <string name="onboarding_config_note">Vous recevrez un avertissement à 80 % de votre quota. Vous pouvez modifier ces paramètres à tout moment.</string>
+    <string name="onboarding_config_note">Vous serez averti à 80 % de votre quota temps. Vous pouvez modifier ces paramètres à tout moment.</string>
 
     <!-- Onboarding - Prêt -->
     <string name="onboarding_ready_title">C\'est parti !</string>
     <string name="onboarding_ready_step1">ReelGuard surveille maintenant vos applications.</string>
-    <string name="onboarding_ready_step2">Le tableau de bord affiche votre consommation du jour.</string>
-    <string name="onboarding_ready_step3">Activez le Mode Focus pour bloquer complètement les Reels pendant une durée définie.</string>
+    <string name="onboarding_ready_step2">Le tableau de bord affiche votre temps de Reels du jour.</string>
+    <string name="onboarding_ready_step3">Activez le Mode Focus pour bloquer totalement les Reels pendant une durée définie, ou le Mode Parental pour verrouiller les réglages par un PIN.</string>
     <string name="onboarding_ready_note">Si le blocage ne fonctionne pas, vérifiez que les deux permissions sont accordées (bandeau rouge = permission manquante).</string>
 
     <!-- Navigation onboarding -->
@@ -138,6 +139,12 @@
     <string name="protection_guide_wellbeing_title">Option 2 — Bien-être numérique (basique)</string>
     <string name="protection_guide_wellbeing_body">Sur le téléphone de l\'enfant : Paramètres → Bien-être numérique et contrôle parental → Contrôle parental. C\'est une option plus légère — elle restreint certains usages mais ne prévient pas la suppression des données de l\'app.</string>
     <string name="protection_guide_close">Compris</string>
+
+    <!-- Confidentialité &amp; données -->
+    <string name="privacy_title">Confidentialité &amp; données</string>
+    <string name="privacy_desc">ReelGuard garde tout sur votre appareil. Découvrez comment l\'app utilise la permission d\'accessibilité et gère la publicité.</string>
+    <string name="privacy_btn">Politique de confidentialité</string>
+    <string name="privacy_body">ReelGuard vous aide à réduire le temps passé sur les fils de vidéos courtes (Reels, Shorts, Spotlight).\n\nCOLLECTE DE DONNÉES\nReelGuard ne collecte, ne transmet ni ne vend aucune donnée personnelle. Vos réglages et statistiques d\'usage (temps passé, séries) sont stockés uniquement sur votre appareil et n\'en sortent jamais. Aucun compte, aucun serveur.\n\nSERVICE D\'ACCESSIBILITÉ\nReelGuard utilise le service d\'accessibilité d\'Android uniquement pour détecter, sur votre appareil, l\'affichage d\'un fil Reels ou Shorts dans les apps que vous sélectionnez, afin d\'afficher l\'écran de blocage. Il ne lit, n\'enregistre ni ne transmet le contenu de votre écran, vos messages ou vos frappes clavier.\n\nPUBLICITÉ\nReelGuard affiche des bannières via Google AdMob. Pour diffuser des pubs, Google peut utiliser l\'identifiant publicitaire (AD ID) de votre appareil. Voir la politique de Google sur policies.google.com/technologies/ads. Vous pouvez réinitialiser ou supprimer votre identifiant publicitaire dans les réglages Android.\n\nENFANTS\nLe Mode Parental est destiné à être configuré par un parent ou tuteur sur l\'appareil d\'un enfant. L\'app ne collecte aucune donnée personnelle.\n\nCONTACT\nDes questions ? Écrivez à standesv@gmail.com.</string>
 
     <!-- Indicateur parental sur le tableau de bord -->
     <string name="cd_parental_active">Mode Parental actif</string>

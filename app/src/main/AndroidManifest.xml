@@ -3,14 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Permissions requises -->
+    <!-- Affichage de l'écran de blocage par-dessus les apps (OverlayManager) -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Réinitialisation des quotas après redémarrage (BootReceiver) -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Permissions AdMob -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
