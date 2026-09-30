@@ -52,7 +52,14 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         // il est présent dans l'arbre d'accessibilité sur TOUS les écrans Instagram (feed, DM,
         // Explore, profil…) → causerait un faux positif systématique sur tout Instagram.
         // EXCLU "reel_player_page" : peut apparaître pour les Reels intégrés dans le feed.
-        "clips_viewer_container", "reel_viewer"
+        //
+        // "clips_viewer" (au lieu de "clips_viewer_container") : token plus large qui couvre
+        // les variantes du lecteur plein écran selon les versions d'Instagram
+        // (clips_viewer_container, clips_viewer_view_pager, clips_viewer_recycler_view…).
+        // Ces IDs n'existent QUE dans le lecteur Reels plein écran — le fil utilise "clips_tab"
+        // (exclu) pour le bouton nav et d'autres IDs pour les clips intégrés → pas de faux positif.
+        // Couvre l'entrée via un reel suggéré (tap sur un reel du fil/Explore) qui ouvre ce lecteur.
+        "clips_viewer", "reel_viewer"
     )
 
     companion object {
@@ -203,10 +210,21 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
             when (event.eventType) {
                 AccessibilityEvent.TYPE_VIEW_CLICKED -> handleClick(event, pkg)
                 AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
-                    // Flush du temps sur chaque swipe Reels (même logique que YouTube/Facebook).
-                    // On ne risque PAS de faux-positif d'ENTRÉE ici car on vérifie isInReelsSection.
-                    // L'entrée en section est gérée exclusivement par handleClick + le poller.
-                    if (isInReelsSection) { if (softFlushTime()) checkAndBlock(pkg) }
+                    if (isInReelsSection) {
+                        // Flush du temps sur chaque swipe Reels.
+                        if (softFlushTime()) checkAndBlock(pkg)
+                    } else {
+                        // ENTRÉE via scroll dans le lecteur Reels plein écran.
+                        // Cas visé : l'utilisateur ouvre un reel SUGGÉRÉ (tap sur un reel du fil
+                        // ou de l'Explore, pas sur l'onglet Reels) puis swipe — aucun clic sur
+                        // l'onglet nav n'a lieu, donc handleClick ne détecte rien. On scanne
+                        // l'arbre pour les IDs du lecteur (clips_viewer / reel_viewer). Ces IDs
+                        // n'existent que dans le lecteur plein écran → aucun faux positif sur le fil.
+                        val root = rootInActiveWindow
+                        if (root != null && nodeContainsViewIds(root, INSTAGRAM_REEL_IDS, maxDepth = 20)) {
+                            enterReelsSection(pkg)
+                        }
+                    }
                 }
                 AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                     // Sortie si l'utilisateur ouvre les DMs pendant une session Reels
@@ -215,11 +233,11 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                         exitReelsSection()
                     }
                     // Entrée via changement de fenêtre : scan de l'arbre pour IDs Reels.
-                    // Couvre les cas où l'utilisateur arrive dans les Reels via deep link
-                    // ou notification sans cliquer sur l'onglet Reels (pas de clic event).
+                    // Couvre les cas où l'utilisateur arrive dans les Reels via deep link,
+                    // notification, ou reel suggéré sans cliquer sur l'onglet Reels.
                     if (!isInReelsSection) {
                         val root = rootInActiveWindow
-                        if (root != null && nodeContainsViewIds(root, INSTAGRAM_REEL_IDS)) {
+                        if (root != null && nodeContainsViewIds(root, INSTAGRAM_REEL_IDS, maxDepth = 20)) {
                             enterReelsSection(pkg)
                         }
                     }
@@ -432,12 +450,18 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         return keywords.any { className.contains(it) || text.contains(it) }
     }
 
-    private fun nodeContainsViewIds(node: AccessibilityNodeInfo?, ids: List<String>, depth: Int = 0): Boolean {
-        if (node == null || depth > 8) return false
+    // maxDepth : profondeur de scan. 8 par défaut (Facebook, dont les IDs génériques
+    // risqueraient des faux positifs si on descend trop bas dans le fil). Instagram passe
+    // une profondeur plus grande (20) car le lecteur Reels plein écran est très profond dans
+    // l'arbre — avec 8, le conteneur clips_viewer/reel_viewer n'était pas atteint, d'où le
+    // temps non décompté quand on entre via un reel suggéré. Les IDs Instagram sont
+    // spécifiques au lecteur → descendre plus bas reste sûr (pas de faux positif sur le fil).
+    private fun nodeContainsViewIds(node: AccessibilityNodeInfo?, ids: List<String>, depth: Int = 0, maxDepth: Int = 8): Boolean {
+        if (node == null || depth > maxDepth) return false
         val viewId = node.viewIdResourceName?.lowercase() ?: ""
         if (ids.any { viewId.contains(it) }) return true
         for (i in 0 until node.childCount) {
-            if (nodeContainsViewIds(node.getChild(i), ids, depth + 1)) return true
+            if (nodeContainsViewIds(node.getChild(i), ids, depth + 1, maxDepth)) return true
         }
         return false
     }
@@ -557,7 +581,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
                 //   même quand l'utilisateur est bien dans les Reels (dépend de la version d'IG)
                 // La SORTIE est gérée par : timer de session (foreground) + clics nav + DMs.
                 if (fg == "com.instagram.android" && !isInReelsSection
-                    && nodeContainsViewIds(root!!, INSTAGRAM_REEL_IDS)) {
+                    && nodeContainsViewIds(root!!, INSTAGRAM_REEL_IDS, maxDepth = 20)) {
                     enterReelsSection("com.instagram.android")
                 }
                 handler.postDelayed(this, INSTAGRAM_POLL_MS)
