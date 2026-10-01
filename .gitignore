@@ -13,6 +13,8 @@ local.properties
 # Keystore - NE JAMAIS committer ces fichiers
 *.keystore
 *.jks
+keystore-credentials.txt
+*.pem
 
 # APK/AAB
 *.apk

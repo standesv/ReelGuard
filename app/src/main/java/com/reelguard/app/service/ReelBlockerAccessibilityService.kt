@@ -43,6 +43,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // peuvent rappeler enterReelsSection et relancer la boucle de blocage.
     private var blockCooldownUntil = 0L
 
+    // Exception messagerie : horodatage du dernier contexte de conversation détecté
+    // (DM Instagram, Messenger, chat Snapchat). Pendant MESSAGING_GRACE_MS après ce moment,
+    // on NE démarre PAS de session Reels automatiquement → les reels ouverts depuis la
+    // messagerie ne sont ni bloqués ni comptés. Un tap explicite sur l'onglet Reels reste permis.
+    private var lastMessagingContextAt = 0L
+    private val MESSAGING_GRACE_MS = 6000L
+
     // Instagram : poller arbre de vues (toutes les 1,5s) + détection par clic (réponse immédiate).
     private var instagramPollerRunnable: Runnable? = null
     private val INSTAGRAM_POLL_MS = 1500L
@@ -203,6 +210,15 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
         if (!quotaManager.isBlockingEnabledForApp(pkg)) return
 
+        // Détection messagerie (toutes apps cibles) : on mémorise le moment où l'utilisateur
+        // est dans une conversation et on sort de la session si elle était en cours. Combiné au
+        // délai de grâce (messagingGraceActive), cela empêche le démarrage automatique d'une
+        // session pour un reel ouvert depuis un DM, tout en autorisant le tap explicite sur Reels.
+        if (quotaManager.isMessagingExceptionEnabled() && isMessagingContext(event, pkg)) {
+            lastMessagingContextAt = System.currentTimeMillis()
+            if (isInReelsSection) exitReelsSection()
+        }
+
         // Instagram : poller (entrée) + clic (entrée/sortie nav) + window-change (sortie DMs).
         // Scroll et window-change ignorés pour l'entrée : classes "reel"/"clip" présentes sur le feed.
         if (pkg == "com.instagram.android") {
@@ -275,7 +291,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         if (pkg == "com.instagram.android") {
             if (combined.contains("reels") && combined.length <= 25 && !isInReelsSection) {
                 // Tap sur l'onglet Reels → entrée (contains pour couvrir "Onglet Reels", "Accès Reels"…)
-                enterReelsSection(pkg)
+                // fromExplicitTap : un clic volontaire sur Reels n'est pas soumis à l'exception messagerie.
+                enterReelsSection(pkg, fromExplicitTap = true)
             } else if (isInReelsSection && combined.length <= 25) {
                 // Tap sur un autre onglet nav → sortie de session
                 val exitTabs = listOf("accueil", "home", "rechercher", "search", "profil", "profile")
@@ -286,7 +303,8 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
         val reelsKeywords = REELS_TAB_KEYWORDS[pkg] ?: return
         if (reelsKeywords.any { combined.contains(it) }) {
-            if (!isInReelsSection) enterReelsSection(pkg)
+            // Clic volontaire sur l'onglet Shorts/Reels/Spotlight → exempté de l'exception messagerie.
+            if (!isInReelsSection) enterReelsSection(pkg, fromExplicitTap = true)
             youtubeExitPending = false
             return
         }
@@ -443,6 +461,11 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         return false
     }
 
+    /** True si l'utilisateur vient d'être dans une conversation (délai de grâce messagerie actif). */
+    private fun messagingGraceActive(): Boolean =
+        quotaManager.isMessagingExceptionEnabled() &&
+        (System.currentTimeMillis() - lastMessagingContextAt < MESSAGING_GRACE_MS)
+
     private fun isMessagingContext(event: AccessibilityEvent, pkg: String): Boolean {
         val keywords = MESSAGING_KEYWORDS[pkg] ?: return false
         val className = event.className?.toString()?.lowercase() ?: ""
@@ -487,9 +510,17 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // GESTION DE SESSION
     // ────────────────────────────────────────────────────────────────────────────
 
-    private fun enterReelsSection(pkg: String) {
+    /**
+     * @param fromExplicitTap true si l'entrée vient d'un clic volontaire sur l'onglet Reels/Shorts.
+     *   Un tap explicite n'est jamais bloqué par l'exception messagerie (l'utilisateur VEUT les reels).
+     *   Les détections automatiques (poller, scroll, scan de fenêtre) passent false → soumises
+     *   au délai de grâce messagerie pour ne pas compter un reel ouvert depuis une conversation.
+     */
+    private fun enterReelsSection(pkg: String, fromExplicitTap: Boolean = false) {
         // Cooldown actif : on vient de bloquer, on ignore les events résiduels de l'app.
         if (System.currentTimeMillis() < blockCooldownUntil) return
+        // Exception messagerie : pas de démarrage automatique juste après une conversation.
+        if (!fromExplicitTap && messagingGraceActive()) return
         isInReelsSection = true
         currentReelStartTime = System.currentTimeMillis()
         lastFlushTime = 0L

@@ -1,0 +1,2 @@
+Picked up JAVA_TOOL_OPTIONS: -javaagent:/usr/local/lib/node_modules_global/lib/node_modules/@anthropic-ai/sandbox-runtime/vendor/java-proxy-agent/srt-proxy-agent.jar
+Warning:  Different store and key passwords not supported for PKCS12 KeyStores. Ignoring user-specified -keypass value.
