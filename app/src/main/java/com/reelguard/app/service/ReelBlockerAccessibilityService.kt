@@ -48,7 +48,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     // on NE démarre PAS de session Reels automatiquement → les reels ouverts depuis la
     // messagerie ne sont ni bloqués ni comptés. Un tap explicite sur l'onglet Reels reste permis.
     private var lastMessagingContextAt = 0L
-    private val MESSAGING_GRACE_MS = 6000L
+    private val MESSAGING_GRACE_MS = 12000L
+
+    // true si la session Reels en cours a démarré depuis une conversation (reel reçu en DM).
+    // Une telle session est exemptée de blocage ET de comptage tant que la grâce messagerie
+    // est active — y compris lorsque le quota est déjà atteint. Réinitialisé à la sortie.
+    private var currentSessionFromMessaging = false
 
     // Instagram : poller arbre de vues (toutes les 1,5s) + détection par clic (réponse immédiate).
     private var instagramPollerRunnable: Runnable? = null
@@ -519,8 +524,10 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     private fun enterReelsSection(pkg: String, fromExplicitTap: Boolean = false) {
         // Cooldown actif : on vient de bloquer, on ignore les events résiduels de l'app.
         if (System.currentTimeMillis() < blockCooldownUntil) return
-        // Exception messagerie : pas de démarrage automatique juste après une conversation.
-        if (!fromExplicitTap && messagingGraceActive()) return
+        // Exception messagerie : une session auto-détectée juste après une conversation est un
+        // "reel reçu en DM" → marquée pour être exemptée de blocage/comptage (voir checkAndBlock,
+        // softFlushTime, flushCurrentReel). Un tap explicite sur l'onglet Reels n'est jamais marqué.
+        currentSessionFromMessaging = !fromExplicitTap && messagingGraceActive()
         isInReelsSection = true
         currentReelStartTime = System.currentTimeMillis()
         lastFlushTime = 0L
@@ -542,6 +549,12 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         val now = System.currentTimeMillis()
         if (now - lastFlushTime < FLUSH_DEBOUNCE_MS) return false
         lastFlushTime = now
+        // Reel reçu en DM (exception active) : on ne compte PAS le temps. On repart de maintenant
+        // pour ne pas accumuler un gros écart qui serait compté à l'expiration de la grâce.
+        if (currentSessionFromMessaging && quotaManager.isMessagingExceptionEnabled() && messagingGraceActive()) {
+            currentReelStartTime = now
+            return true
+        }
         val elapsed = if (currentReelStartTime > 0L) now - currentReelStartTime else 0L
         if (elapsed > 0L) {
             quotaManager.recordReelTime(elapsed)
@@ -708,6 +721,7 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
     private fun exitReelsSection() {
         flushCurrentReel()
         isInReelsSection = false
+        currentSessionFromMessaging = false
         stopSessionTimer()
         cancelAutoExit()  // annule l'auto-exit en attente → évite HOME/overlay sur écran d'accueil
         overlayManager.hideOverlay()
@@ -715,8 +729,13 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
 
     private fun flushCurrentReel() {
         if (isInReelsSection && currentReelStartTime > 0) {
-            val duration = System.currentTimeMillis() - currentReelStartTime
-            if (duration > 500) quotaManager.recordReelTime(duration)
+            // Ne pas compter le temps d'un reel reçu en DM exempté.
+            val exempt = currentSessionFromMessaging &&
+                    quotaManager.isMessagingExceptionEnabled() && messagingGraceActive()
+            if (!exempt) {
+                val duration = System.currentTimeMillis() - currentReelStartTime
+                if (duration > 500) quotaManager.recordReelTime(duration)
+            }
             currentReelStartTime = 0L
         }
     }
@@ -744,6 +763,14 @@ class ReelBlockerAccessibilityService : AccessibilityService() {
         // on ne bloque pas non plus : on ne peut pas confirmer que l'app est visible.
         val foregroundPkg = rootInActiveWindow?.packageName?.toString() ?: return
         if (foregroundPkg !in TARGET_PACKAGES) return
+
+        // Exception messagerie : un reel ouvert depuis une conversation n'est JAMAIS bloqué
+        // tant que la grâce dure, même quota atteint. Une fois la grâce expirée (l'utilisateur
+        // enchaîne sur d'autres reels bien après la conversation), on repasse en mode normal.
+        if (currentSessionFromMessaging && quotaManager.isMessagingExceptionEnabled()) {
+            if (messagingGraceActive()) { overlayManager.hideOverlay(); return }
+            currentSessionFromMessaging = false
+        }
 
         val status = quotaManager.checkAndConsumeQuota(pkg)
         if (!status.isExceeded) { overlayManager.hideOverlay(); return }
